@@ -47,7 +47,7 @@ export function createQuotesService(repo, settings, sales, receivables, products
     },
 
     /**
-     * @param {{ customerId?: number, customerName: string, customerNit?: string, notes?: string, validUntil?: string, items: any[], userId: number, userName: string }} input
+     * @param {{ customerId?: number, customerName: string, customerNit?: string, customerPhone?: string, customerAddress?: string, notes?: string, validUntil?: string, items: any[], userId: number, userName: string }} input
      */
     create(input) {
       if (!input.customerName?.trim()) throw Object.assign(new Error('Nombre del cliente requerido'), { code: 'QUOTE_MISSING_CUSTOMER' })
@@ -55,11 +55,13 @@ export function createQuotesService(repo, settings, sales, receivables, products
       const items = mapItems(input.items)
       const { subtotal, tax_rate, tax_amount, total } = calcTotals(items)
       const id = repo.createQuote({
-        customer_id:     input.customerId   ?? null,
-        customer_name:   input.customerName.trim(),
-        customer_nit:    input.customerNit?.trim() || null,
-        notes:           input.notes?.trim()       || null,
-        valid_until:     input.validUntil          || null,
+        customer_id:      input.customerId          ?? null,
+        customer_name:    input.customerName.trim(),
+        customer_nit:     input.customerNit?.trim()     || null,
+        customer_phone:   input.customerPhone?.trim()   || null,
+        customer_address: input.customerAddress?.trim() || null,
+        notes:            input.notes?.trim()           || null,
+        valid_until:      input.validUntil              || null,
         subtotal, tax_rate, tax_amount, total,
         created_by:      input.userId,
         created_by_name: input.userName,
@@ -69,7 +71,7 @@ export function createQuotesService(repo, settings, sales, receivables, products
 
     /**
      * @param {number} id
-     * @param {{ customerId?: number, customerName: string, customerNit?: string, notes?: string, validUntil?: string, items: any[] }} input
+     * @param {{ customerId?: number, customerName: string, customerNit?: string, customerPhone?: string, customerAddress?: string, notes?: string, validUntil?: string, items: any[] }} input
      */
     update(id, input) {
       const quote = repo.findById(id)
@@ -81,11 +83,13 @@ export function createQuotesService(repo, settings, sales, receivables, products
       const items = mapItems(input.items)
       const { subtotal, tax_rate, tax_amount, total } = calcTotals(items)
       repo.updateQuote(id, {
-        customer_id:   input.customerId   ?? quote.customer_id,
-        customer_name: (input.customerName ?? quote.customer_name).trim(),
-        customer_nit:  input.customerNit?.trim() || quote.customer_nit,
-        notes:         input.notes?.trim()       || null,
-        valid_until:   input.validUntil          || null,
+        customer_id:      input.customerId              ?? quote.customer_id,
+        customer_name:    (input.customerName           ?? quote.customer_name).trim(),
+        customer_nit:     input.customerNit?.trim()     || quote.customer_nit     || null,
+        customer_phone:   input.customerPhone?.trim()   || quote.customer_phone   || null,
+        customer_address: input.customerAddress?.trim() || quote.customer_address || null,
+        notes:            input.notes?.trim()           || null,
+        valid_until:      input.validUntil              || null,
         subtotal, tax_rate, tax_amount, total,
       }, items)
       return repo.findById(id)

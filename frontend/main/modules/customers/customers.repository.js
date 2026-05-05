@@ -6,7 +6,8 @@
  * @property {string | null} email
  * @property {string | null} phone
  * @property {string | null} address
- * @property {number} active         0 | 1
+ * @property {number} active      0 | 1
+ * @property {number} is_system   0 | 1
  * @property {string} created_at
  * @property {string} updated_at
  */
@@ -30,7 +31,7 @@
  * @property {number} [active]
  */
 
-const COLUMNS = 'id, nit, name, email, phone, address, active, created_at, updated_at'
+const COLUMNS = 'id, nit, name, email, phone, address, active, is_system, created_at, updated_at'
 
 /**
  * @param {import('better-sqlite3').Database} db
@@ -53,6 +54,7 @@ export function createCustomersRepository(db) {
         LIMIT 50`
     ),
     selectByNit:     db.prepare(`SELECT ${COLUMNS} FROM customers WHERE nit = ?`),
+    selectSystem:    db.prepare(`SELECT ${COLUMNS} FROM customers WHERE is_system = 1 ORDER BY id`),
     insert: db.prepare(
       `INSERT INTO customers (nit, name, email, phone, address)
        VALUES (?, ?, ?, ?, ?)`
@@ -89,6 +91,11 @@ export function createCustomersRepository(db) {
      */
     findByNit(nit) {
       return stmts.selectByNit.get(nit)
+    },
+
+    /** @returns {CustomerRow[]} */
+    findSystemCustomers() {
+      return stmts.selectSystem.all()
     },
 
     /**

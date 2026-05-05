@@ -11,5 +11,6 @@ export function registerCustomersIpc(service) {
   ipcMain.handle('customers:get-by-id',  wrap((_e, id)           => service.getById(id)))
   ipcMain.handle('customers:create',     wrap((_e, input)        => service.create(input)))
   ipcMain.handle('customers:update',     wrap((_e, id, patch)    => service.update(id, patch)))
-  ipcMain.handle('customers:set-active', wrap((_e, id, active)   => service.setActive(id, active)))
+  ipcMain.handle('customers:set-active',    wrap((_e, id, active) => service.setActive(id, active)))
+  ipcMain.handle('customers:get-system',    wrap(() => service.getSystemCustomers()))
 }

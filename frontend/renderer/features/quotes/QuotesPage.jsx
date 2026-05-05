@@ -1,13 +1,15 @@
 import { useState } from 'react'
+import logoCotizacionSrc from '@/assets/logoCotizacion.jpeg'
 import { toast } from 'sonner'
 import {
   Plus, Eye, Send, Check, X, ShoppingCart,
   Pencil, RefreshCw, FileText, Printer, Wallet,
 } from 'lucide-react'
 
-import { PageHeader }     from '@/components/shared/PageHeader'
-import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
-import { EmptyState }     from '@/components/shared/EmptyState'
+import { PageHeader }       from '@/components/shared/PageHeader'
+import { LoadingSpinner }   from '@/components/shared/LoadingSpinner'
+import { EmptyState }       from '@/components/shared/EmptyState'
+import { ProductCombobox }  from '@/components/shared/ProductCombobox'
 import { Button }         from '@/components/ui/button'
 import { Input }          from '@/components/ui/input'
 import { Label }          from '@/components/ui/label'
@@ -24,6 +26,7 @@ import {
 import { useProducts }          from '@/hooks/useProducts'
 import { useAuthContext }       from '@/features/auth/AuthContext'
 import { useBusinessSettings, useTaxSettings }  from '@/hooks/useSettings'
+import { CustomerCombobox }     from '@/components/shared/CustomerCombobox'
 
 const fmtDate  = (s) => s ? new Intl.DateTimeFormat('es-GT', { dateStyle: 'medium' }).format(new Date(s + 'T00:00:00')) : '—'
 const fmtMoney = (n) => new Intl.NumberFormat('es-GT', { style: 'currency', currency: 'GTQ' }).format(n ?? 0)
@@ -230,22 +233,30 @@ function QuoteFormModal({ open, editId = null, onClose, user }) {
   const isEdit = !!editId
   const { data: existing, isLoading: loadingExisting } = useQuote(editId)
 
+  const [customerId,   setCustomerId]   = useState(/** @type {number|null} */ (null))
   const [form, setForm] = useState({
-    customerName: '',
-    customerNit:  '',
-    notes:        '',
-    validUntil:   '',
+    customerName:    '',
+    customerNit:     '',
+    customerPhone:   '',
+    customerAddress: '',
+    notes:           '',
+    validUntil:      '',
   })
   const [items, setItems] = useState(/** @type {{ productId?: number, productName: string, productCode: string, qty: number, unitPrice: number }[]} */ ([]))
   const [initialized, setInitialized] = useState(false)
+  const [editingQtyIdx, setEditingQtyIdx] = useState(/** @type {number|null} */ (null))
+  const [editingQtyVal, setEditingQtyVal] = useState('')
 
   // Inicializar form cuando se carga la cotización existente
   if (isEdit && existing && !initialized) {
+    setCustomerId(existing.quote.customer_id ?? null)
     setForm({
-      customerName: existing.quote.customer_name,
-      customerNit:  existing.quote.customer_nit  ?? '',
-      notes:        existing.quote.notes         ?? '',
-      validUntil:   existing.quote.valid_until   ?? '',
+      customerName:    existing.quote.customer_name,
+      customerNit:     existing.quote.customer_nit     ?? '',
+      customerPhone:   /** @type {any} */ (existing.quote).customer_phone   ?? '',
+      customerAddress: /** @type {any} */ (existing.quote).customer_address ?? '',
+      notes:           existing.quote.notes            ?? '',
+      validUntil:      existing.quote.valid_until      ?? '',
     })
     setItems(existing.items.map(it => ({
       productId:   it.product_id   ?? undefined,
@@ -258,9 +269,11 @@ function QuoteFormModal({ open, editId = null, onClose, user }) {
   }
 
   function handleClose() {
-    setForm({ customerName: '', customerNit: '', notes: '', validUntil: '' })
+    setCustomerId(null)
+    setForm({ customerName: '', customerNit: '', customerPhone: '', customerAddress: '', notes: '', validUntil: '' })
     setItems([])
     setInitialized(false)
+    setEditingQtyIdx(null)
     onClose()
   }
 
@@ -279,14 +292,19 @@ function QuoteFormModal({ open, editId = null, onClose, user }) {
   function updateItem(idx, field, value) {
     setItems(prev => prev.map((it, i) => i === idx ? { ...it, [field]: value } : it))
   }
-  function selectProduct(idx, productId) {
-    const prod = products.find(p => p.id === Number(productId))
-    if (prod) {
-      setItems(prev => prev.map((it, i) => i === idx
+  function selectProduct(idx, prod) {
+    if (!prod) return
+    setItems(prev => {
+      const updated = prev.map((it, i) => i === idx
         ? { ...it, productId: prod.id, productName: prod.name, productCode: prod.code ?? '', unitPrice: prod.price }
         : it
-      ))
-    }
+      )
+      // Si se seleccionó en la última línea, agrega una nueva vacía automáticamente
+      if (idx === prev.length - 1) {
+        updated.push({ productName: '', productCode: '', qty: 1, unitPrice: 0 })
+      }
+      return updated
+    })
   }
 
   const subtotal = items.reduce((s, it) => s + it.qty * it.unitPrice, 0)
@@ -294,12 +312,15 @@ function QuoteFormModal({ open, editId = null, onClose, user }) {
   async function handleSubmit(e) {
     e.preventDefault()
     const payload = {
-      customerName: form.customerName,
-      customerNit:  form.customerNit  || undefined,
-      notes:        form.notes        || undefined,
-      validUntil:   form.validUntil   || undefined,
-      userId:       user.id,
-      userName:     user.full_name,
+      customerId:      customerId    || undefined,
+      customerName:    form.customerName,
+      customerNit:     form.customerNit     || undefined,
+      customerPhone:   form.customerPhone   || undefined,
+      customerAddress: form.customerAddress || undefined,
+      notes:           form.notes           || undefined,
+      validUntil:      form.validUntil      || undefined,
+      userId:          user.id,
+      userName:        user.full_name,
       items: items.map(it => ({
         productId:   it.productId,
         productName: it.productName,
@@ -336,7 +357,26 @@ function QuoteFormModal({ open, editId = null, onClose, user }) {
           ? <LoadingSpinner label="Cargando..." />
           : (
             <form onSubmit={handleSubmit} className="space-y-4 pt-1">
-              {/* Cliente */}
+              {/* Selector de cliente registrado */}
+              <div className="grid gap-1.5">
+                <Label>Cliente registrado (opcional)</Label>
+                <CustomerCombobox
+                  value={customerId}
+                  onChange={setCustomerId}
+                  onSelectFull={(c) => {
+                    setCustomerId(c.id)
+                    setForm(prev => ({
+                      ...prev,
+                      customerName:    c.name,
+                      customerNit:     c.nit  ?? '',
+                      customerPhone:   c.phone   ?? '',
+                      customerAddress: c.address ?? '',
+                    }))
+                  }}
+                />
+              </div>
+
+              {/* Nombre y NIT */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="grid gap-1.5">
                   <Label>Nombre del cliente *</Label>
@@ -345,6 +385,18 @@ function QuoteFormModal({ open, editId = null, onClose, user }) {
                 <div className="grid gap-1.5">
                   <Label>NIT</Label>
                   <Input value={form.customerNit} onChange={set('customerNit')} placeholder="123456-7" />
+                </div>
+              </div>
+
+              {/* Teléfono y Dirección */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="grid gap-1.5">
+                  <Label>Teléfono</Label>
+                  <Input value={form.customerPhone} onChange={set('customerPhone')} placeholder="5555-1234" />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label>Dirección</Label>
+                  <Input value={form.customerAddress} onChange={set('customerAddress')} placeholder="Ciudad de Guatemala" />
                 </div>
               </div>
 
@@ -382,19 +434,45 @@ function QuoteFormModal({ open, editId = null, onClose, user }) {
                       </div>
                       {items.map((item, idx) => (
                         <div key={idx} className="qt-item-row">
-                          <select className="po-select" value={item.productId ?? ''}
-                            onChange={e => selectProduct(idx, e.target.value)}>
-                            <option value="">Seleccionar...</option>
-                            {products.filter(p => p.is_active === 1).map(p => (
-                              <option key={p.id} value={p.id}>{p.name}</option>
-                            ))}
-                          </select>
+                          <ProductCombobox
+                            value={item.productId ?? null}
+                            onChange={prod => selectProduct(idx, prod)}
+                            products={products.filter(p => p.is_active === 1)}
+                          />
                           <Input placeholder="Descripción / nombre"
                             value={item.productName}
                             onChange={e => updateItem(idx, 'productName', e.target.value)} />
-                          <Input type="number" min="0.01" step="0.01" placeholder="1"
-                            value={item.qty}
-                            onChange={e => updateItem(idx, 'qty', parseFloat(e.target.value) || 0)} />
+                          <div className="flex items-center gap-1 justify-center">
+                            {editingQtyIdx === idx ? (
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                autoFocus
+                                value={editingQtyVal}
+                                onChange={e => setEditingQtyVal(e.target.value)}
+                                onBlur={() => {
+                                  const v = parseFloat(editingQtyVal.replace(',', '.'))
+                                  updateItem(idx, 'qty', v > 0 ? v : item.qty)
+                                  setEditingQtyIdx(null)
+                                }}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') e.currentTarget.blur()
+                                  if (e.key === 'Escape') setEditingQtyIdx(null)
+                                }}
+                                className="w-14 text-center text-xs border rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-ring"
+                              />
+                            ) : (
+                              <span className="text-xs w-8 text-center">{item.qty}</span>
+                            )}
+                            <button
+                              type="button"
+                              title="Editar cantidad"
+                              onClick={() => { setEditingQtyIdx(idx); setEditingQtyVal(String(item.qty)) }}
+                              className="text-blue-500 hover:text-blue-700"
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </button>
+                          </div>
                           <Input type="number" min="0" step="0.01" placeholder="0.00"
                             value={item.unitPrice}
                             onChange={e => updateItem(idx, 'unitPrice', parseFloat(e.target.value) || 0)} />
@@ -532,7 +610,8 @@ function QuoteDetailModal({ id, onClose }) {
  * Genera HTML autocontenido (tamaño carta) para la cotización.
  * @param {{ q: any, items: any[], bizName: string, taxEnabled: boolean }} opts
  */
-function buildQuoteHtml({ q, items, bizName, taxEnabled }) {
+/** @param {{ q: any, items: any[], bizName: string, taxEnabled: boolean, logoDataUrl?: string }} _ */
+function buildQuoteHtml({ q, items, bizName, taxEnabled, logoDataUrl = '' }) {
   const fmtM = (n) => new Intl.NumberFormat('es-GT', { style: 'currency', currency: 'GTQ' }).format(n ?? 0)
   const fmtD = (s) => s ? new Intl.DateTimeFormat('es-GT', { dateStyle: 'long' }).format(new Date(s + 'T00:00:00')) : '—'
 
@@ -572,7 +651,10 @@ function buildQuoteHtml({ q, items, bizName, taxEnabled }) {
     .footer { margin-top: 30px; text-align: center; font-size: 10px; color: #888; border-top: 1px solid #eee; padding-top: 8px; }
   </style></head><body>
   <div class="header">
-    <div class="biz-name">${bizName}</div>
+    ${logoDataUrl
+      ? `<img src="${logoDataUrl}" alt="Logo" style="height:110px;max-width:45%;object-fit:contain;" />`
+      : `<div class="biz-name">${bizName}</div>`
+    }
     <div>
       <div class="doc-title">COTIZACIÓN</div>
       <div class="doc-num"># ${q.id}</div>
@@ -613,9 +695,10 @@ function buildQuoteHtml({ q, items, bizName, taxEnabled }) {
 
 function QuotePrintDialog({ id, onClose }) {
   const { data, isLoading } = useQuote(id)
-  const { name: bizName, logo: bizLogo } = useBusinessSettings()
+  const { name: bizName } = useBusinessSettings()
   const { enabled: taxEnabled } = useTaxSettings()
   const [printing, setPrinting] = useState(false)
+  const logoDataUrl = logoCotizacionSrc
   const q = data?.quote
 
   async function handlePrint() {
@@ -625,7 +708,8 @@ function QuotePrintDialog({ id, onClose }) {
       const anyApi = /** @type {any} */ (window.api)
       const settingsRes = await anyApi.settings.getAll()
       const printer = settingsRes?.data?.default_printer ?? ''
-      const html = buildQuoteHtml({ q, items: data.items, bizName, taxEnabled })
+
+      const html = buildQuoteHtml({ q, items: data.items, bizName, taxEnabled, logoDataUrl })
       const res = await anyApi.printer.print(html, printer, 'letter')
       if (res?.ok) {
         toast.success('Cotización enviada a imprimir')
@@ -659,10 +743,10 @@ function QuotePrintDialog({ id, onClose }) {
               <div>
                 {/* Encabezado */}
                 <div className="flex justify-between items-start border-b-2 border-black pb-3 mb-4">
-                  {bizLogo && <img src={bizLogo} alt={bizName} className="h-10 object-contain" />}
-                  <div className={bizLogo ? 'text-right' : ''}>
-                    <div className="font-bold text-base">{bizName}</div>
-                  </div>
+                  {logoDataUrl
+                    ? <img src={logoDataUrl} alt="Logo" className="w-auto object-contain" style={{ height: '130px', maxWidth: '65%' }} />
+                    : <div style={{ height: '130px', maxWidth: '65%' }} />
+                  }
                   <div className="text-right">
                     <div className="text-xl font-bold">COTIZACIÓN</div>
                     <div className="text-sm text-muted-foreground"># {q.id}</div>

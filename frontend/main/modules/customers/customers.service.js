@@ -119,14 +119,18 @@ export function createCustomersService(repo) {
      * @param {CustomerUpdateInput} patch
      * @returns {CustomerRow}
      */
+    /** @returns {CustomerRow[]} */
+    getSystemCustomers() {
+      return repo.findSystemCustomers()
+    },
+
     update(id, patch) {
       if (!Number.isInteger(id) || id <= 0) {
         throw new CustomerValidationError('id', `id invalido: ${id}`)
       }
-      if (id === 1) {
-        // El "Consumidor Final" es un registro del sistema; permitir
-        // editarlo abre la puerta a corromper la referencia por defecto.
-        throw new CustomerValidationError('id', 'No se puede editar "Consumidor Final"')
+      const existing = repo.findById(id)
+      if (existing?.is_system) {
+        throw new CustomerValidationError('id', 'No se puede editar un cliente del sistema')
       }
       if (patch.name !== undefined) assertValidName(patch.name)
       if (patch.email !== undefined) assertValidEmail(patch.email)
@@ -163,8 +167,9 @@ export function createCustomersService(repo) {
       if (!Number.isInteger(id) || id <= 0) {
         throw new CustomerValidationError('id', `id invalido: ${id}`)
       }
-      if (id === 1) {
-        throw new CustomerValidationError('id', 'No se puede desactivar "Consumidor Final"')
+      const existing = repo.findById(id)
+      if (existing?.is_system) {
+        throw new CustomerValidationError('id', 'No se puede desactivar un cliente del sistema')
       }
       const changes = repo.setActive(id, active)
       if (changes === 0) throw new CustomerNotFoundError(id)

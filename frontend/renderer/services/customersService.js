@@ -2,6 +2,15 @@ import { customerListSchema, customerSchema } from '@/schemas/customer.schema.js
 import { unwrap } from './ipc.js'
 
 /**
+ * Retorna los clientes del sistema (Consumidor Final, Empresa Genérica).
+ * @returns {Promise<import('@/schemas/customer.schema.js').CustomerList>}
+ */
+export async function getSystemCustomers() {
+  const res = await window.api.customers.getSystem()
+  return unwrap('customers:get-system', res, customerListSchema)
+}
+
+/**
  * @param {{ includeInactive?: boolean }} [opts]
  * @returns {Promise<import('@/schemas/customer.schema.js').CustomerList>}
  */

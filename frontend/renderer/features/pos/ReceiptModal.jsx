@@ -72,9 +72,9 @@ function buildInvoiceBody(data, business, taxEnabled) {
     <div style="display:flex;align-items:stretch;background:${C_HEAD};border:2px solid ${C_BORDER};gap:0;${PRINT_COLOR}">
 
       <!-- Logo -->
-      <div style="padding:8px 10px;display:flex;align-items:center;justify-content:center;border-right:1px solid ${C_BORDER};min-width:80px;background:${C_HEAD};${PRINT_COLOR}">
+      <div style="padding:6px 10px;display:flex;align-items:center;justify-content:center;border-right:1px solid ${C_BORDER};min-width:140px;max-width:240px;background:${C_HEAD};${PRINT_COLOR}">
         ${business.logo
-          ? `<img src="${business.logo}" style="max-width:80px;max-height:60px;object-fit:contain;" />`
+          ? `<img src="${business.logo}" style="max-width:275px;max-height:113px;object-fit:contain;" />`
           : ''}
       </div>
 
@@ -86,11 +86,11 @@ function buildInvoiceBody(data, business, taxEnabled) {
         ${business.phone   ? `<div style="font-size:0.8em;">Tel: ${business.phone}</div>` : ''}
       </div>
 
-      <!-- Bloque FACTURA + tipo pago + fecha -->
+      <!-- Bloque COMPROBANTE + tipo pago + fecha -->
       <div style="border-left:1px solid ${C_BORDER};min-width:170px;display:flex;flex-direction:column;">
         <!-- Título -->
         <div style="background:${C_BORDER};color:#fff;text-align:center;font-weight:800;font-size:1em;padding:5px 0;letter-spacing:0.05em;${PRINT_COLOR}">
-          FACTURA
+          COMPROBANTE
         </div>
         <!-- Tipo de pago -->
         <div style="display:flex;gap:12px;justify-content:center;padding:4px 8px;font-size:0.85em;border-bottom:1px solid ${C_BORDER};">
@@ -229,7 +229,7 @@ export function ReceiptModal({ data, business, taxEnabled = false, onClose }) {
 
         {/* Toolbar */}
         <div className="flex items-center justify-between px-4 py-3 border-b bg-white sticky top-0 z-10">
-          <span className="text-sm font-semibold">Factura — Vista previa (media carta horizontal)</span>
+          <span className="text-sm font-semibold">Comprobante — Vista previa (media carta horizontal)</span>
           <div className="flex gap-2">
             <Button size="sm" onClick={handlePrint}>
               <Printer className="mr-1.5 h-3.5 w-3.5" /> Imprimir

@@ -61,6 +61,7 @@
     "build": {
         "appId": "com.manguerasdelsor.app",
         "productName": "Mangueras del sur POS",
+        "afterPack": "./scripts/afterPack.js",
         "directories": {
             "output": "release",
             "buildResources": "release/build"
@@ -68,6 +69,13 @@
         "icon": "release/build/icon",
         "win": {
             "target": "nsis"
+        },
+        "nsis": {
+            "oneClick": false,
+            "allowToChangeInstallationDirectory": true,
+            "createDesktopShortcut": true,
+            "createStartMenuShortcut": true,
+            "shortcutName": "Mangueras del sur POS"
         },
         "linux": {
             "target": [

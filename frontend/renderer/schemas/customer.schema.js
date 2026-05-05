@@ -13,6 +13,7 @@ export const customerSchema = z.object({
   phone:      z.string().nullable(),
   address:    z.string().nullable(),
   active:     z.number().int().min(0).max(1),
+  is_system:  z.number().int().min(0).max(1),
   created_at: z.string(),
   updated_at: z.string(),
 })

@@ -10,10 +10,10 @@ export function createQuotesRepository(db) {
     findItems:   db.prepare(`SELECT * FROM quote_items WHERE quote_id = ? ORDER BY id`),
 
     insert: db.prepare(`
-      INSERT INTO quotes (customer_id, customer_name, customer_nit, notes, valid_until,
-                          subtotal, tax_rate, tax_amount, total, created_by, created_by_name)
-      VALUES (@customer_id, @customer_name, @customer_nit, @notes, @valid_until,
-              @subtotal, @tax_rate, @tax_amount, @total, @created_by, @created_by_name)
+      INSERT INTO quotes (customer_id, customer_name, customer_nit, customer_phone, customer_address,
+                          notes, valid_until, subtotal, tax_rate, tax_amount, total, created_by, created_by_name)
+      VALUES (@customer_id, @customer_name, @customer_nit, @customer_phone, @customer_address,
+              @notes, @valid_until, @subtotal, @tax_rate, @tax_amount, @total, @created_by, @created_by_name)
     `),
     insertItem: db.prepare(`
       INSERT INTO quote_items (quote_id, product_id, product_name, product_code, qty, unit_price, subtotal)
@@ -33,6 +33,7 @@ export function createQuotesRepository(db) {
     update: db.prepare(`
       UPDATE quotes
       SET customer_id=@customer_id, customer_name=@customer_name, customer_nit=@customer_nit,
+          customer_phone=@customer_phone, customer_address=@customer_address,
           notes=@notes, valid_until=@valid_until,
           subtotal=@subtotal, tax_rate=@tax_rate, tax_amount=@tax_amount, total=@total,
           updated_at=strftime('%Y-%m-%d %H:%M:%S','now','localtime')

@@ -11,6 +11,7 @@ export function createCategoriesService(repo) {
     },
 
     update(id, name) {
+      if (id === 1) throw Object.assign(new Error('La categoría del sistema no se puede modificar'), { code: 'CATEGORY_SYSTEM' })
       const trimmed = (name ?? '').trim()
       if (!trimmed) throw new Error('El nombre de la categoría es requerido')
       repo.update(id, trimmed)
@@ -18,6 +19,7 @@ export function createCategoriesService(repo) {
     },
 
     setActive(id, active) {
+      if (id === 1) throw Object.assign(new Error('La categoría del sistema no se puede desactivar'), { code: 'CATEGORY_SYSTEM' })
       repo.setActive(id, active ? 1 : 0)
     },
   }

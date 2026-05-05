@@ -33,6 +33,7 @@ const storage = typeof window !== 'undefined'
  * @property {(product: { id: number, code: string, name: string, price: number, stock: number }) => void} addItem
  * @property {(productId: number) => void} removeItem
  * @property {(productId: number, qty: number) => void} updateQuantity
+ * @property {(productId: number, price: number) => void} updatePrice
  * @property {() => void} clear
  * @property {(customer: Customer) => void} setCustomer
  * @property {(type: 'none'|'percent'|'fixed', value: number) => void} setDiscount
@@ -78,7 +79,7 @@ export const useCartStore = create(
 
       updateQuantity: (productId, qty) =>
         set((state) => {
-          if (qty < 1) {
+          if (qty <= 0) {
             return { items: state.items.filter((i) => i.productId !== productId) }
           }
           return {
@@ -89,6 +90,13 @@ export const useCartStore = create(
             ),
           }
         }),
+
+      updatePrice: (productId, price) =>
+        set((state) => ({
+          items: state.items.map((i) =>
+            i.productId === productId ? { ...i, price: Math.max(0, price) } : i
+          ),
+        })),
 
       discount: /** @type {{ type: 'none'|'percent'|'fixed', value: number }} */ ({ type: 'none', value: 0 }),
       setDiscount: (type, value) => set({ discount: { type, value } }),

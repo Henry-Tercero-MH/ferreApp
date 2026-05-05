@@ -55,6 +55,21 @@ export function useCustomer(id) {
   })
 }
 
+/**
+ * Retorna los clientes del sistema { cf, empresa }.
+ * Los IDs son dinámicos — no asumir que CF=1 o Empresa=2 en el renderer.
+ */
+export function useSystemCustomers() {
+  const { data = [] } = useQuery({
+    queryKey: ['customers', 'system'],
+    queryFn: () => customersService.getSystemCustomers(),
+    staleTime: Infinity,
+  })
+  const cf      = data.find(c => c.name === 'Consumidor Final') ?? null
+  const empresa = data.find(c => c.name === 'Empresa Genérica') ?? null
+  return { cf, empresa }
+}
+
 export function useCreateCustomer() {
   const qc = useQueryClient()
   return useMutation({

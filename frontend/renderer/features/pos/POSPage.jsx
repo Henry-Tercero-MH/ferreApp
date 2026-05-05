@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Minus, Plus, Search, ShoppingCart, Trash2, X, Lock } from 'lucide-react'
+import { Minus, Plus, Pencil, Search, ShoppingCart, Trash2, X, Lock } from 'lucide-react'
 import { toast } from 'sonner'
 import { useNavigate } from 'react-router-dom'
 import { useOpenSession } from '@/hooks/useCash'
@@ -18,6 +18,7 @@ import { CustomerCombobox } from '@/components/shared/CustomerCombobox'
 import { useSearchProducts, useCreateSale } from '@/hooks/useProducts'
 import { useTaxSettings, useCurrencySettings, useBusinessSettings } from '@/hooks/useSettings'
 import { useCreateReceivable, useCustomerBalance } from '@/hooks/useReceivables'
+import { useSystemCustomers } from '@/hooks/useCustomers'
 import { useAuthContext } from '@/features/auth/AuthContext'
 import { ReceiptModal } from './ReceiptModal'
 import { useCartStore, selectSubtotal, selectItemCount, selectDiscount } from '@/stores/cartStore'
@@ -78,6 +79,8 @@ function POSInner() {
   const [customerId,    setCustomerId]     = useState(/** @type {number|null} */ (DEFAULT_CUSTOMER_ID))
   const [paymentMethod, setPaymentMethod] = useState(/** @type {'cash'|'credit'|'card'|'transfer'} */ ('cash'))
   const [clientType,    setClientType]    = useState(/** @type {'cf'|'registered'|'company'} */ ('cf'))
+  const [editingQtyId,  setEditingQtyId]  = useState(/** @type {number|null} */ (null))
+  const [editingQtyVal, setEditingQtyVal] = useState('')
 
   const { data: products = [], isLoading, isError, error, refetch } = useSearchProducts(query)
 
@@ -85,6 +88,7 @@ function POSInner() {
   const addItem     = useCartStore((s) => s.addItem)
   const removeItem  = useCartStore((s) => s.removeItem)
   const updateQty   = useCartStore((s) => s.updateQuantity)
+  const updatePrice = useCartStore((s) => s.updatePrice)
   const clearCart   = useCartStore((s) => s.clear)
   const setDiscount = useCartStore((s) => s.setDiscount)
   const itemCount   = useCartStore(selectItemCount)
@@ -103,13 +107,13 @@ function POSInner() {
   const createReceivable = useCreateReceivable()
 
   const { data: customerBalance } = useCustomerBalance(customerId)
+  const { empresa: empresaDefault } = useSystemCustomers()
 
-  // Al cambiar a CF, resetear al cliente genérico
+  // Al cambiar tipo de cliente, asignar el ID por defecto correspondiente
   useEffect(() => {
-    if (clientType === 'cf') {
-      setCustomerId(DEFAULT_CUSTOMER_ID)
-    }
-  }, [clientType])
+    if (clientType === 'cf')      setCustomerId(DEFAULT_CUSTOMER_ID)
+    if (clientType === 'company') setCustomerId(empresaDefault?.id ?? null)
+  }, [clientType, empresaDefault?.id])
 
   // Al seleccionar crédito, quitar CF y limpiar el cliente seleccionado
   useEffect(() => {
@@ -127,6 +131,11 @@ function POSInner() {
     : products.filter(p => p.category === category)
 
   function handleConfirm() {
+    const systemIds = [DEFAULT_CUSTOMER_ID, empresaDefault?.id].filter(Boolean)
+    if (clientType === 'registered' && (customerId === null || systemIds.includes(/** @type {number} */ (customerId)))) {
+      toast.error('Selecciona un cliente válido para factura con cliente registrado.')
+      return
+    }
     if (paymentMethod === 'credit' && clientType === 'cf') {
       toast.error('No se puede facturar a Consumidor Final con crédito')
       return
@@ -289,7 +298,17 @@ function POSInner() {
                     <MoneyDisplay amount={it.price * it.qty} className="text-xs font-bold text-primary shrink-0" />
                   </div>
                   <div className="flex items-center justify-between">
-                    <p className="text-xs text-muted-foreground"><MoneyDisplay amount={it.price} /> c/u</p>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={it.price}
+                        onChange={e => updatePrice(it.productId, parseFloat(e.target.value) || 0)}
+                        className="w-16 bg-transparent border-b border-dashed border-muted-foreground/40 focus:border-primary focus:outline-none text-xs text-right pr-0.5"
+                      />
+                      <span>c/u</span>
+                    </div>
                     <div className="flex items-center gap-1">
                       <div className="flex items-center gap-0.5 rounded border bg-muted/40 px-0.5">
                         <button
@@ -298,7 +317,28 @@ function POSInner() {
                         >
                           <Minus className="h-2.5 w-2.5" />
                         </button>
-                        <span className="w-6 text-center text-xs">{it.qty}</span>
+                        {editingQtyId === it.productId ? (
+                          <input
+                            type="number"
+                            min="0.01"
+                            step="0.01"
+                            autoFocus
+                            value={editingQtyVal}
+                            onChange={e => setEditingQtyVal(e.target.value)}
+                            onBlur={() => {
+                              const v = parseFloat(editingQtyVal)
+                              updateQty(it.productId, v > 0 ? v : it.qty)
+                              setEditingQtyId(null)
+                            }}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') e.target.blur()
+                              if (e.key === 'Escape') { setEditingQtyId(null) }
+                            }}
+                            className="w-12 bg-transparent text-center text-xs focus:outline-none"
+                          />
+                        ) : (
+                          <span className="w-6 text-center text-xs">{it.qty}</span>
+                        )}
                         <button
                           className="flex h-5 w-5 items-center justify-center text-muted-foreground hover:text-foreground"
                           onClick={() => updateQty(it.productId, it.qty + 1)}
@@ -306,6 +346,13 @@ function POSInner() {
                           <Plus className="h-2.5 w-2.5" />
                         </button>
                       </div>
+                      <button
+                        className="flex h-5 w-5 items-center justify-center text-blue-500 hover:bg-blue-500/10 rounded"
+                        title="Editar cantidad"
+                        onClick={() => { setEditingQtyId(it.productId); setEditingQtyVal(String(it.qty)) }}
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </button>
                       <button
                         className="flex h-5 w-5 items-center justify-center text-destructive hover:bg-destructive/10 rounded"
                         onClick={() => removeItem(it.productId)}
@@ -393,8 +440,12 @@ function POSInner() {
               <div className="h-9 rounded-md border border-input bg-muted/40 px-3 flex items-center text-xs text-muted-foreground select-none">
                 Consumidor Final (C/F)
               </div>
+            ) : clientType === 'company' ? (
+              <div className="h-9 rounded-md border border-input bg-muted/40 px-3 flex items-center text-xs text-muted-foreground select-none">
+                Empresa Genérica
+              </div>
             ) : (
-              <CustomerCombobox value={customerId} onChange={setCustomerId} />
+              <CustomerCombobox value={customerId} onChange={setCustomerId} excludeIds={/** @type {number[]} */ ([DEFAULT_CUSTOMER_ID, empresaDefault?.id].filter(id => id != null))} />
             )}
             {clientType !== 'cf' && customerBalance && customerBalance.balance > 0 && (
               <div className="flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300">

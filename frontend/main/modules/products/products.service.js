@@ -143,7 +143,7 @@ export function createProductsService(repo) {
      */
     adjustStock(id, type, qty) {
       assertExists(id)
-      const numQty = Math.round(Number(qty))
+      const numQty = Number(qty)
       if (!Number.isFinite(numQty) || numQty <= 0) {
         throw Object.assign(new Error('qty invalido'), { code: 'PRODUCT_INVALID_QTY' })
       }

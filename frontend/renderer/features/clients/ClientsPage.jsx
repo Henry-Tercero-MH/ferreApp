@@ -11,7 +11,6 @@ import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 import { useSearchCustomers, useToggleCustomerActive } from '@/hooks/useCustomers'
 import { CustomerFormDialog } from './CustomerFormDialog'
 
-const PROTECTED_ID = 1
 
 export default function ClientsPage() {
   const [query,    setQuery]    = useState('')
@@ -112,7 +111,7 @@ export default function ClientsPage() {
               </thead>
               <tbody>
                 {customers.map((c, idx) => {
-                  const isProtected = c.id === PROTECTED_ID
+                  const isProtected = c.is_system === 1
                   const inactive    = c.active === 0
                   const rowCls = inactive
                     ? 'sh-tr-voided'

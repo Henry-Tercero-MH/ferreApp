@@ -30,6 +30,7 @@ export interface CustomerRow {
   phone: string | null
   address: string | null
   active: number
+  is_system: number
   created_at: string
   updated_at: string
 }
@@ -399,6 +400,7 @@ export interface RendererApi {
     create(input: CustomerCreateInput):              Promise<IpcResponse<CustomerRow>>
     update(id: number, patch: CustomerUpdateInput):  Promise<IpcResponse<CustomerRow>>
     setActive(id: number, active: boolean):          Promise<IpcResponse<{ id: number }>>
+    getSystem():                                     Promise<IpcResponse<CustomerRow[]>>
   }
   users: {
     login(email: string, password: string):          Promise<IpcResponse<UserRow>>

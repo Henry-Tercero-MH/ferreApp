@@ -71,7 +71,7 @@ function assertValidInput(input) {
         code: 'SALE_INVALID_ITEM',
       })
     }
-    if (!Number.isInteger(item.qty) || item.qty <= 0) {
+    if (!Number.isFinite(item.qty) || item.qty <= 0) {
       throw Object.assign(new Error(`qty invalida para producto ${item.id}`), {
         code: 'SALE_INVALID_ITEM',
       })

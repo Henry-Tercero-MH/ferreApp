@@ -7,16 +7,16 @@ import { useCustomer, useSearchCustomers, useCreateCustomer } from '@/hooks/useC
 import { cn } from '@/lib/utils'
 
 /**
- * Combobox compacto de cliente para POS.
- * Muestra un campo con el cliente seleccionado o placeholder;
- * al hacer click abre un dropdown con buscador y lista de resultados.
+ * Combobox compacto de cliente para POS y cotizaciones.
  *
  * @param {{
  *   value: number | null,
  *   onChange: (id: number | null) => void,
+ *   onSelectFull?: (customer: import('@/schemas/customer.schema.js').Customer) => void,
+ *   excludeIds?: number[],
  * }} props
  */
-export function CustomerCombobox({ value, onChange }) {
+export function CustomerCombobox({ value, onChange, onSelectFull, excludeIds = [] }) {
   const [open, setOpen]       = useState(false)
   const [creating, setCreating] = useState(false)
   const [query, setQuery]     = useState('')
@@ -38,8 +38,9 @@ export function CustomerCombobox({ value, onChange }) {
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
 
-  function handleSelect(id) {
+  function handleSelect(id, customer) {
     onChange(id)
+    if (onSelectFull && customer) onSelectFull(customer)
     setOpen(false)
     setCreating(false)
     setQuery('')
@@ -104,8 +105,9 @@ export function CustomerCombobox({ value, onChange }) {
               query={query}
               setQuery={setQuery}
               selectedId={value}
-              onSelect={handleSelect}
+              onSelect={(id, customer) => handleSelect(id, customer)}
               onRequestCreate={() => setCreating(true)}
+              excludeIds={excludeIds}
             />
           )}
         </div>
@@ -119,12 +121,14 @@ export function CustomerCombobox({ value, onChange }) {
  *   query: string,
  *   setQuery: (q: string) => void,
  *   selectedId: number | null,
- *   onSelect: (id: number) => void,
+ *   onSelect: (id: number, customer: any) => void,
  *   onRequestCreate: () => void,
+ *   excludeIds?: number[],
  * }} props
  */
-function CustomerSearchPanel({ query, setQuery, selectedId, onSelect, onRequestCreate }) {
-  const { data: results = [], isLoading } = useSearchCustomers(query)
+function CustomerSearchPanel({ query, setQuery, selectedId, onSelect, onRequestCreate, excludeIds = [] }) {
+  const { data: rawResults = [], isLoading } = useSearchCustomers(query)
+  const results = rawResults.filter(c => !excludeIds.includes(c.id))
 
   return (
     <>
@@ -155,7 +159,7 @@ function CustomerSearchPanel({ query, setQuery, selectedId, onSelect, onRequestC
           <button
             key={c.id}
             type="button"
-            onClick={() => onSelect(c.id)}
+            onClick={() => onSelect(c.id, c)}
             className={cn(
               'flex w-full items-center justify-between px-2.5 py-1.5 text-left',
               'hover:bg-muted/60 focus:bg-muted focus:outline-none',

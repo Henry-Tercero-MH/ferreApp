@@ -44,6 +44,7 @@ const api = {
     create:     (input)          => ipcRenderer.invoke('customers:create', input),
     update:     (id, patch)      => ipcRenderer.invoke('customers:update', id, patch),
     setActive:  (id, active)     => ipcRenderer.invoke('customers:set-active', id, active),
+    getSystem:  ()               => ipcRenderer.invoke('customers:get-system'),
   },
 
   users: {
@@ -157,6 +158,8 @@ const api = {
     list:  ()                            => ipcRenderer.invoke('printer:list'),
     print: (html, deviceName, paperSize) => ipcRenderer.invoke('printer:print', html, deviceName, paperSize),
   },
+
+  readAsset: (filename) => ipcRenderer.invoke('app:read-asset', filename),
   license: {
     status:   ()      => ipcRenderer.invoke('license:status'),
     activate: (token) => ipcRenderer.invoke('license:activate', token),

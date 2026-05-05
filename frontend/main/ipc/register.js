@@ -1,6 +1,7 @@
 import _electron from 'electron'
 const { ipcMain, dialog, app, BrowserWindow } = _electron
 import path from 'path'
+import { readFile } from 'fs/promises'
 import { getDb } from '../database/connection.js'
 import { runMigrations } from '../database/migrator.js'
 
@@ -237,6 +238,21 @@ export function bootstrap() {
 
   // Arranca el scheduler con los valores configurados
   startBackupSchedule(db, intervalHours, maxCopies)
+
+  // ── Assets estáticos (logo, etc.) ───────────────────────────
+  ipcMain.handle('app:read-asset', async (_e, filename) => {
+    try {
+      const base = process.env.VITE_DEV_SERVER_URL
+        ? path.join(app.getAppPath(), 'public', filename)
+        : path.join(app.getAppPath(), 'dist',   filename)
+      const data = await readFile(base)
+      const ext  = filename.split('.').pop()?.toLowerCase()
+      const mime = ext === 'png' ? 'image/png' : 'image/jpeg'
+      return { ok: true, data: `data:${mime};base64,${data.toString('base64')}` }
+    } catch (err) {
+      return { ok: false, error: { code: 'ASSET_READ_ERROR', message: String(err.message) } }
+    }
+  })
 
   // ── Impresora ────────────────────────────────────────────────
   ipcMain.handle('printer:list', async (event) => {

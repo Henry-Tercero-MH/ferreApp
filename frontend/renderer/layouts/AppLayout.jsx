@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuthContext } from '../features/auth/AuthContext';
-import { useBusinessSettings } from '../hooks/useSettings';
+import { useBusinessSettings, useSettings } from '../hooks/useSettings';
 import { useInventoryProducts } from '../features/warehouses/inventoryStore';
 import { ROUTES } from '../lib/constants';
 import {
@@ -21,26 +21,34 @@ import {
 import { Landmark, ShoppingCart, Wallet, FileText, TrendingDown, Truck } from 'lucide-react'
 import { GlobalSearch } from '@/components/shared/GlobalSearch';
 
-const NAV = [
-  { to: ROUTES.DASHBOARD, label: 'Dashboard',         icon: MdDashboard,           adminOnly: true },
-  { to: ROUTES.POS,       label: 'Facturar',          icon: MdPointOfSale },
-  { to: ROUTES.HISTORY,   label: 'Historial',         icon: MdReceiptLong },
-  { to: ROUTES.INVENTORY, label: 'Productos / Stock', icon: MdInventory },
-  { to: ROUTES.CLIENTS,   label: 'Clientes',          icon: MdPeopleOutline,        adminOnly: true },
-  { to: ROUTES.REPORTS,   label: 'Reportes',          icon: MdInsertChartOutlined,  adminOnly: true },
-];
+/** Todos los ítems configurables del sidebar (key = identificador en nav_visibility) */
+const ALL_NAV = [
+  { key: 'pos',         to: ROUTES.POS,         label: 'Facturar',           icon: MdPointOfSale },
+  { key: 'history',     to: ROUTES.HISTORY,      label: 'Historial',          icon: MdReceiptLong },
+  { key: 'inventory',   to: ROUTES.INVENTORY,    label: 'Productos / Stock',  icon: MdInventory },
+  { key: 'clients',     to: ROUTES.CLIENTS,      label: 'Clientes',           icon: MdPeopleOutline },
+  { key: 'reports',     to: ROUTES.REPORTS,      label: 'Reportes',           icon: MdInsertChartOutlined },
+  { key: 'cash',        to: ROUTES.CASH,         label: 'Caja',               icon: Landmark,        adminSection: true },
+  { key: 'purchases',   to: ROUTES.PURCHASES,    label: 'Compras',            icon: ShoppingCart,    adminSection: true },
+  { key: 'receivables', to: ROUTES.RECEIVABLES,  label: 'Cuentas por Cobrar', icon: Wallet,          adminSection: true },
+  { key: 'quotes',      to: ROUTES.QUOTES,       label: 'Cotizaciones',       icon: FileText,        adminSection: true },
+  { key: 'expenses',    to: ROUTES.EXPENSES,     label: 'Gastos',             icon: TrendingDown,    adminSection: true },
+  { key: 'suppliers',   to: ROUTES.SUPPLIERS,    label: 'Proveedores',        icon: Truck,           adminSection: true },
+]
 
-const ADMIN_NAV = [
-  { to: ROUTES.CASH,      label: 'Caja',           icon: Landmark },
-  { to: ROUTES.PURCHASES,   label: 'Compras',            icon: ShoppingCart },
-  { to: ROUTES.RECEIVABLES, label: 'Cuentas por Cobrar', icon: Wallet },
-  { to: ROUTES.QUOTES,      label: 'Cotizaciones',       icon: FileText },
-  { to: ROUTES.EXPENSES,    label: 'Gastos',             icon: TrendingDown },
-  { to: ROUTES.SUPPLIERS,  label: 'Proveedores',        icon: Truck },
-  { to: ROUTES.USERS,     label: 'Usuarios',        icon: MdManageAccounts },
-  { to: ROUTES.SETTINGS,  label: 'Configuración',   icon: MdSettings },
-  { to: ROUTES.AUDIT,     label: 'Bitácora',        icon: MdShield },
-];
+/** Siempre admin-only, no configurables */
+const ADMIN_ONLY_NAV = [
+  { key: 'users',    to: ROUTES.USERS,    label: 'Usuarios',      icon: MdManageAccounts, adminSection: true },
+  { key: 'settings', to: ROUTES.SETTINGS, label: 'Configuración', icon: MdSettings,       adminSection: true },
+  { key: 'audit',    to: ROUTES.AUDIT,    label: 'Bitácora',      icon: MdShield,         adminSection: true },
+]
+
+/** @type {Record<string, boolean>} */
+const DEFAULT_VISIBILITY = {
+  pos: true, history: true, inventory: true,
+  clients: false, reports: false, cash: false, purchases: false,
+  receivables: false, quotes: false, expenses: false, suppliers: false,
+}
 
 /** @returns {[boolean, () => void]} */
 function useCollapsed() {
@@ -72,6 +80,40 @@ export default function AppLayout() {
   const { data: products = [] }  = useInventoryProducts();
   const lowStockCount = products.filter(p => p.is_active === 1 && p.stock <= p.min_stock).length;
 
+  // Leer visibilidad del menú desde settings
+  const { data: allSettings } = useSettings()
+  /** @type {Record<string, Record<string, boolean>>} */
+  const navVisibility = /** @type {any} */ (allSettings?.access?.nav_visibility) ?? {}
+
+  // Para no-admin: calcular qué ítems puede ver según su rol
+  const role = user?.role ?? ''
+  const visibleMain  = isAdmin ? ALL_NAV.filter(i => !i.adminSection) : ALL_NAV.filter(i => !i.adminSection && (navVisibility[i.key]?.[role] ?? DEFAULT_VISIBILITY[i.key] ?? false))
+  const visibleAdmin = isAdmin ? [...ALL_NAV.filter(i => i.adminSection), ...ADMIN_ONLY_NAV] : ALL_NAV.filter(i => i.adminSection && (navVisibility[i.key]?.[role] ?? false))
+
+  /** @param {{ to: string, label: string, icon: any, adminSection?: boolean, key: string }} item */
+  function renderNavItem({ to, label, icon: Icon }) {
+    return (
+      <NavLink
+        key={to}
+        to={to}
+        title={collapsed ? label : undefined}
+        className={({ isActive }) =>
+          `nav-item${isActive ? ' nav-item-active' : ''}${collapsed ? ' nav-item-collapsed' : ''}`
+        }
+      >
+        <span className="relative">
+          <Icon className="nav-icon" />
+          {to === ROUTES.INVENTORY && lowStockCount > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 h-4 min-w-[16px] px-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
+              {lowStockCount > 9 ? '9+' : lowStockCount}
+            </span>
+          )}
+        </span>
+        {!collapsed && <span className="nav-label">{label}</span>}
+      </NavLink>
+    )
+  }
+
   return (
     <div className={`app-shell${collapsed ? ' sidebar-collapsed' : ''}`}>
       <aside className="sidebar">
@@ -92,46 +134,27 @@ export default function AppLayout() {
         </div>
 
         <nav className="sidebar-nav">
-          {NAV.filter(item => !item.adminOnly || isAdmin).map(({ to, label, icon: Icon }) => (
+          {/* Dashboard: solo admin */}
+          {isAdmin && (
             <NavLink
-              key={to}
-              to={to}
-              title={collapsed ? label : undefined}
+              to={ROUTES.DASHBOARD}
+              title={collapsed ? 'Dashboard' : undefined}
               className={({ isActive }) =>
                 `nav-item${isActive ? ' nav-item-active' : ''}${collapsed ? ' nav-item-collapsed' : ''}`
               }
             >
-              <span className="relative">
-                <Icon className="nav-icon" />
-                {to === ROUTES.INVENTORY && lowStockCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 h-4 min-w-[16px] px-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
-                    {lowStockCount > 9 ? '9+' : lowStockCount}
-                  </span>
-                )}
-              </span>
-              {!collapsed && <span className="nav-label">{label}</span>}
+              <MdDashboard className="nav-icon" />
+              {!collapsed && <span className="nav-label">Dashboard</span>}
             </NavLink>
-          ))}
+          )}
 
-          {isAdmin && (
+          {visibleMain.map(renderNavItem)}
+
+          {visibleAdmin.length > 0 && (
             <>
               {!collapsed && <div className="nav-section-label">Administración</div>}
               {collapsed && <div className="nav-section-divider" />}
-              {ADMIN_NAV.map(({ to, label, icon: Icon }) => (
-                <NavLink
-                  key={to}
-                  to={to}
-                  title={collapsed ? label : undefined}
-                  className={({ isActive }) =>
-                    `nav-item${isActive ? ' nav-item-active' : ''}${collapsed ? ' nav-item-collapsed' : ''}`
-                  }
-                >
-                  <span className="relative">
-                    <Icon className="nav-icon" />
-                  </span>
-                  {!collapsed && <span className="nav-label">{label}</span>}
-                </NavLink>
-              ))}
+              {visibleAdmin.map(renderNavItem)}
             </>
           )}
         </nav>
@@ -145,7 +168,6 @@ export default function AppLayout() {
       </aside>
 
       <div className="main-wrapper">
-        {/* ── Topbar ── */}
         <header className="topbar">
           <div className="topbar-left">
             <GlobalSearch />

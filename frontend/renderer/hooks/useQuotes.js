@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as svc from '@/services/quotesService.js'
+import { productKeys, saleKeys } from './queryKeys.js'
 
 export const quoteKeys = {
   all:    ['quotes'],
@@ -63,7 +64,11 @@ export function useConvertQuote() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: svc.convertQuote,
-    onSuccess: () => qc.invalidateQueries({ queryKey: quoteKeys.all }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: quoteKeys.all })
+      qc.invalidateQueries({ queryKey: productKeys.all })
+      qc.invalidateQueries({ queryKey: saleKeys.all })
+    },
   })
 }
 
@@ -73,6 +78,7 @@ export function useConvertQuoteToReceivable() {
     mutationFn: svc.convertQuoteToReceivable,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: quoteKeys.all })
+      qc.invalidateQueries({ queryKey: productKeys.all })
       qc.invalidateQueries({ queryKey: ['receivables'] })
     },
   })

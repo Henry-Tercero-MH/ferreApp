@@ -14,7 +14,7 @@ export const saleItemSchema = z.object({
   id:           z.number().int().positive(),
   sale_id:      z.number().int().positive(),
   product_id:   z.number().int().positive(),
-  qty:          z.number().int().positive(),
+  qty:          z.number().positive(),
   price:        z.number().nonnegative(),
   product_code: z.string().nullable().optional(),
   product_name: z.string().nullable().optional(),
@@ -28,7 +28,7 @@ export const saleItemSchema = z.object({
  */
 export const saleItemInputSchema = z.object({
   id:    z.number().int().positive(),     // product_id en main; renombrar cuando se rediseñe createSale
-  qty:   z.number().int().positive(),
+  qty:   z.number().positive(),
   price: z.number().nonnegative(),
 })
 

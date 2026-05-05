@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
-import { Building2, Check, Palette, Printer, ShieldCheck, Database, Download, Clock, HardDrive } from 'lucide-react'
+import { Building2, Check, Palette, Printer, ShieldCheck, Database, Download, Clock, HardDrive, LayoutList } from 'lucide-react'
 
 import { Button }   from '@/components/ui/button'
 import { Input }    from '@/components/ui/input'
@@ -518,8 +518,95 @@ export default function SettingsPage() {
 
         <BackupSection settings={s} />
 
+        <NavVisibilitySection current={s.nav_visibility} setMut={setMut} />
+
       </div>
     </div>
+  )
+}
+
+// ── Sección: Visibilidad del menú lateral ────────────────────────────────────
+
+const NAV_ITEMS_CFG = [
+  { key: 'pos',         label: 'Facturar' },
+  { key: 'history',     label: 'Historial' },
+  { key: 'inventory',   label: 'Productos / Stock' },
+  { key: 'clients',     label: 'Clientes' },
+  { key: 'reports',     label: 'Reportes' },
+  { key: 'cash',        label: 'Caja' },
+  { key: 'purchases',   label: 'Compras' },
+  { key: 'receivables', label: 'Cuentas por Cobrar' },
+  { key: 'quotes',      label: 'Cotizaciones' },
+  { key: 'expenses',    label: 'Gastos' },
+  { key: 'suppliers',   label: 'Proveedores' },
+]
+
+const ROLES_CFG = [
+  { key: 'cashier',   label: 'Cajero' },
+  { key: 'mechanic',  label: 'Mecánico' },
+  { key: 'warehouse', label: 'Almacén' },
+]
+
+/** @param {{ current: unknown, setMut: ReturnType<typeof useSetSetting> }} p */
+function NavVisibilitySection({ current, setMut }) {
+  const visibility = /** @type {Record<string, Record<string, boolean>>} */ (
+    (typeof current === 'object' && current !== null) ? current : {}
+  )
+
+  /** @param {string} itemKey @param {string} roleKey */
+  function toggle(itemKey, roleKey) {
+    const updated = {
+      ...visibility,
+      [itemKey]: {
+        ...visibility[itemKey],
+        [roleKey]: !(visibility[itemKey]?.[roleKey] ?? false),
+      },
+    }
+    setMut.mutate({ key: 'nav_visibility', value: updated })
+  }
+
+  return (
+    <Card className="lg:col-span-2">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <LayoutList className="h-4 w-4 text-muted-foreground" />
+          Acceso al menú lateral por rol
+        </CardTitle>
+        <p className="text-xs text-muted-foreground">
+          El rol <strong>Administrador</strong> siempre tiene acceso completo. Los cambios se aplican de inmediato.
+        </p>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b">
+                <th className="py-2 pr-4 text-left font-medium text-muted-foreground">Módulo</th>
+                {ROLES_CFG.map(r => (
+                  <th key={r.key} className="py-2 px-4 text-center font-medium text-muted-foreground w-28">{r.label}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {NAV_ITEMS_CFG.map((item, i) => (
+                <tr key={item.key} className={i % 2 === 0 ? 'bg-muted/30' : ''}>
+                  <td className="py-2 pr-4 font-medium">{item.label}</td>
+                  {ROLES_CFG.map(role => (
+                    <td key={role.key} className="py-2 px-4 text-center">
+                      <Switch
+                        checked={visibility[item.key]?.[role.key] ?? false}
+                        onCheckedChange={() => toggle(item.key, role.key)}
+                        disabled={setMut.isPending}
+                      />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 
