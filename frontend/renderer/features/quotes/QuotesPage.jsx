@@ -31,6 +31,22 @@ import { CustomerCombobox }     from '@/components/shared/CustomerCombobox'
 const fmtDate  = (s) => s ? new Intl.DateTimeFormat('es-GT', { dateStyle: 'medium' }).format(new Date(s + 'T00:00:00')) : '—'
 const fmtMoney = (n) => new Intl.NumberFormat('es-GT', { style: 'currency', currency: 'GTQ' }).format(n ?? 0)
 
+/** Convierte una URL de asset a base64 para poder embeberse en HTML impreso en contexto aislado */
+async function urlToBase64(url) {
+  try {
+    const res  = await fetch(url)
+    const blob = await res.blob()
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload  = () => resolve(/** @type {string} */ (reader.result))
+      reader.onerror = reject
+      reader.readAsDataURL(blob)
+    })
+  } catch {
+    return ''
+  }
+}
+
 const STATUS_LABEL = {
   draft:     'Borrador',
   sent:      'Enviada',
@@ -709,7 +725,8 @@ function QuotePrintDialog({ id, onClose }) {
       const settingsRes = await anyApi.settings.getAll()
       const printer = settingsRes?.data?.default_printer ?? ''
 
-      const html = buildQuoteHtml({ q, items: data.items, bizName, taxEnabled, logoDataUrl })
+      const logoPrint = await urlToBase64(logoCotizacionSrc)
+      const html = buildQuoteHtml({ q, items: data.items, bizName, taxEnabled, logoDataUrl: logoPrint || logoDataUrl })
       const res = await anyApi.printer.print(html, printer, 'letter')
       if (res?.ok) {
         toast.success('Cotización enviada a imprimir')
