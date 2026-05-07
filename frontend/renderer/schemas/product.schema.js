@@ -16,7 +16,7 @@ export const productSchema = z.object({
   condition: z.string(),
   min_stock: z.number().int().nonnegative(),
   is_active: z.number().int().min(0).max(1),
-  cost:      z.number().nonnegative().optional().default(0),
+  cost:      z.number().nonnegative().default(0),
 })
 
 /** @typedef {z.infer<typeof productSchema>} Product */

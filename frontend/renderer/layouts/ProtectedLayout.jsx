@@ -12,7 +12,7 @@ export default function ProtectedLayout() {
       background: 'var(--sidebar-bg, #071030)',
       fontFamily: "'Segoe UI', system-ui, sans-serif",
     }}>
-      <div style={{ color: '#fff', fontSize: 18, fontWeight: 700 }}>Mangueras del Sur</div>
+      <div style={{ color: '#fff', fontSize: 18, fontWeight: 700 }}>Ferreteria El Esfuerzo</div>
       <div style={{ color: '#8a9ec4', fontSize: 12 }}>Verificando sesión…</div>
     </div>
   );

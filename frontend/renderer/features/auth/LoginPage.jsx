@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { AlertCircle, LogIn } from 'lucide-react'
+import { AlertCircle, LogIn, DatabaseZap } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,6 +14,7 @@ import { Card } from '@/components/ui/card'
 import { useAuthContext } from './AuthContext'
 import { useBusinessSettings } from '@/hooks/useSettings'
 import { ROUTES } from '../../lib/constants'
+import { isElectron } from '@/services/webApiService.js'
 
 const loginSchema = z.object({
   email:    z.string().trim().email('Email invalido'),
@@ -29,8 +30,37 @@ export default function LoginPage() {
   const { login } = useAuthContext()
   const navigate = useNavigate()
   const { name: appName, logo } = useBusinessSettings()
-  const [authError, setAuthError] = useState(/** @type {string | null} */ (null))
-  const [submitting, setSubmitting] = useState(false)
+  const [authError,   setAuthError]   = useState(/** @type {string | null} */ (null))
+  const [submitting,  setSubmitting]  = useState(false)
+  const [setupRunning, setSetupRunning] = useState(false)
+
+  const runSetup = async () => {
+    const url = import.meta.env.VITE_APPS_SCRIPT_URL
+    if (!url) { toast.error('VITE_APPS_SCRIPT_URL no configurado'); return }
+    setSetupRunning(true)
+    try {
+      const res  = await fetch(`${url}?action=setup`, { method: 'GET' })
+      const text = await res.text()
+      let json
+      try { json = JSON.parse(text) } catch { json = null }
+
+      if (json?.ok === true) {
+        toast.success('Hojas creadas correctamente. Ya puedes ingresar.')
+      } else if (json?.error?.message?.includes("'sheet' requerido") ||
+                 json?.error?.message?.includes("sheet")) {
+        toast.error('El Apps Script necesita ser redesplegado con la versión actualizada de Code.gs', {
+          description: 'Ve a script.google.com → Implementar → Nueva implementación.',
+          duration: 8000,
+        })
+      } else {
+        toast.error(json?.error?.message || 'Error al inicializar. Verifica el Apps Script.')
+      }
+    } catch {
+      toast.error('No se pudo conectar con el servidor')
+    } finally {
+      setSetupRunning(false)
+    }
+  }
 
   useEffect(() => {
     if (localStorage.getItem('db_just_restored')) {
@@ -138,8 +168,24 @@ export default function LoginPage() {
                 </Button>
               </form>
 
-              <p className="mt-6 border-t pt-4 text-center text-xs text-muted-foreground/60">
-                &copy; {new Date().getFullYear()} Mangueras del Sur. Todos los derechos reservados.
+              {!isElectron && (
+                <div className="mt-4 border-t pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-xs text-muted-foreground"
+                    disabled={setupRunning}
+                    onClick={runSetup}
+                  >
+                    <DatabaseZap className="mr-2 h-3 w-3" />
+                    {setupRunning ? 'Creando hojas...' : 'Inicializar base de datos en la nube'}
+                  </Button>
+                </div>
+              )}
+
+              <p className="mt-4 text-center text-xs text-muted-foreground/60">
+                &copy; {new Date().getFullYear()} Ferreteria El Esfuerzo. Todos los derechos reservados.
               </p>
             </div>
           </div>

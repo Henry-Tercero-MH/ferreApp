@@ -59,12 +59,13 @@ const api = {
   },
 
   sales: {
-    create:      (saleData) => ipcRenderer.invoke('sales:create', saleData),
-    getById:     (id)       => ipcRenderer.invoke('sales:get-by-id', id),
-    list:        (opts)     => ipcRenderer.invoke('sales:list', opts),
-    dailyReport: ()         => ipcRenderer.invoke('sales:daily-report'),
-    void:        (input)    => ipcRenderer.invoke('sales:void', input),
-    rangeReport: (range)    => ipcRenderer.invoke('sales:range-report', range),
+    create:       (saleData) => ipcRenderer.invoke('sales:create', saleData),
+    getById:      (id)       => ipcRenderer.invoke('sales:get-by-id', id),
+    list:         (opts)     => ipcRenderer.invoke('sales:list', opts),
+    listAllItems: ()         => ipcRenderer.invoke('sales:list-all-items'),
+    dailyReport:  ()         => ipcRenderer.invoke('sales:daily-report'),
+    void:         (input)    => ipcRenderer.invoke('sales:void', input),
+    rangeReport:  (range)    => ipcRenderer.invoke('sales:range-report', range),
   },
 
   audit: {
@@ -90,12 +91,13 @@ const api = {
   },
 
   cash: {
-    getOpen:      ()       => ipcRenderer.invoke('cash:get-open'),
-    list:         ()       => ipcRenderer.invoke('cash:list'),
-    getSession:   (id)     => ipcRenderer.invoke('cash:get-session', id),
-    open:         (input)  => ipcRenderer.invoke('cash:open', input),
-    close:        (input)  => ipcRenderer.invoke('cash:close', input),
-    addMovement:  (input)  => ipcRenderer.invoke('cash:add-movement', input),
+    getOpen:         ()       => ipcRenderer.invoke('cash:get-open'),
+    list:            ()       => ipcRenderer.invoke('cash:list'),
+    listAllMovements:()       => ipcRenderer.invoke('cash:list-all-movements'),
+    getSession:      (id)     => ipcRenderer.invoke('cash:get-session', id),
+    open:            (input)  => ipcRenderer.invoke('cash:open', input),
+    close:           (input)  => ipcRenderer.invoke('cash:close', input),
+    addMovement:     (input)  => ipcRenderer.invoke('cash:add-movement', input),
   },
 
   quotes: {
@@ -160,9 +162,14 @@ const api = {
   },
 
   readAsset: (filename) => ipcRenderer.invoke('app:read-asset', filename),
+
   license: {
     status:   ()      => ipcRenderer.invoke('license:status'),
     activate: (token) => ipcRenderer.invoke('license:activate', token),
+  },
+
+  cloud: {
+    applyPull: (data) => ipcRenderer.invoke('cloud:apply-pull', data),
   },
 }
 

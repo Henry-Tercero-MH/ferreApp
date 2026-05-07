@@ -110,6 +110,13 @@ export function createSalesRepository(db) {
         WHERE si.sale_id = ?
      ORDER BY si.id ASC`
     ),
+    selectAllItems: db.prepare(
+      `SELECT si.id, si.sale_id, si.product_id, si.qty, si.price,
+              p.code AS product_code, p.name AS product_name
+         FROM sale_items si
+    LEFT JOIN products p ON p.id = si.product_id
+     ORDER BY si.id ASC`
+    ),
     findPageFiltered: db.prepare(`
       SELECT ${SALE_COLUMNS}
         FROM sales
@@ -368,6 +375,10 @@ export function createSalesRepository(db) {
      */
     findSaleItems(saleId) {
       return stmts.selectItems.all(saleId)
+    },
+
+    findAllSaleItems() {
+      return stmts.selectAllItems.all()
     },
 
     /**

@@ -57,6 +57,9 @@ export function createCashRepository(db) {
     movementsForSession: db.prepare(
       `SELECT * FROM cash_movements WHERE session_id = ? ORDER BY created_at ASC`
     ),
+    findAllMovements: db.prepare(
+      `SELECT * FROM cash_movements ORDER BY created_at ASC`
+    ),
     insertMovement: db.prepare(
       `INSERT INTO cash_movements (session_id, type, amount, concept, created_by)
        VALUES (@session_id, @type, @amount, @concept, @created_by)`
@@ -123,6 +126,11 @@ export function createCashRepository(db) {
     /** @param {number} sessionId @returns {CashMovementRow[]} */
     movementsForSession(sessionId) {
       return stmts.movementsForSession.all(sessionId)
+    },
+
+    /** @returns {CashMovementRow[]} */
+    findAllMovements() {
+      return stmts.findAllMovements.all()
     },
 
     /**

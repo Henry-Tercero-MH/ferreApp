@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
-import { Building2, Check, Palette, Printer, ShieldCheck, Database, Download, Clock, HardDrive, LayoutList } from 'lucide-react'
+import { Building2, Check, Palette, Printer, ShieldCheck, Database, Download, Clock, HardDrive, LayoutList, CloudUpload, LockOpen } from 'lucide-react'
 
 import { Button }   from '@/components/ui/button'
 import { Input }    from '@/components/ui/input'
@@ -15,7 +15,11 @@ import { PageHeader }     from '@/components/shared/PageHeader'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 
 import { useSettings }        from '@/hooks/useSettings'
+import { useAuthContext }     from '@/features/auth/AuthContext'
 import * as settingsService   from '@/services/settingsService.js'
+import { syncBidirectional, startAutoSync } from '@/services/syncService.js'
+import * as cashService       from '@/services/cashService.js'
+import { isElectron }         from '@/services/webApiService.js'
 import { settingsKeys }       from '@/hooks/queryKeys.js'
 import { THEMES, THEME_MAP, applyTheme } from '@/lib/themes'
 
@@ -81,11 +85,10 @@ function Field({ label, hint, children }) {
  * @param {{
  *   currentTheme: string
  *   appName: string
- *   setMut: ReturnType<typeof useSetSetting>
  *   upsertMut: ReturnType<typeof useUpsertSetting>
  * }} p
  */
-function ThemeSection({ currentTheme, appName, setMut, upsertMut }) {
+function ThemeSection({ currentTheme, appName, upsertMut }) {
   const [open, setOpen]       = useState(false)
   const [preview, setPreview] = useState(currentTheme)
   const qc = useQueryClient()
@@ -474,21 +477,13 @@ export default function SettingsPage() {
           ]}
         />
 
-        {false && (
-          <LogoSection
-            current={typeof s.business_logo_base64 === 'string' ? s.business_logo_base64 : ''}
-            mut={setMut}
-          />
-        )}
+        {/* LogoSection deshabilitado temporalmente */}
 
-        {false && (
-          <ThemeSection
-            currentTheme={typeof s.app_theme === 'string' ? s.app_theme : 'crimson'}
-            appName={typeof s.app_name  === 'string' ? s.app_name  : 'SerProMec'}
-            setMut={setMut}
-            upsertMut={upsertMut}
-          />
-        )}
+        <ThemeSection
+          currentTheme={typeof s.app_theme === 'string' ? s.app_theme : 'crimson'}
+          appName={typeof s.app_name  === 'string' ? s.app_name  : 'SerProMec'}
+          upsertMut={upsertMut}
+        />
 
         {false && (
           <SettingsSection
@@ -517,6 +512,12 @@ export default function SettingsPage() {
         <TicketSection s={s} setMut={setMut} />
 
         <BackupSection settings={s} />
+
+        <CloudSyncSection />
+
+        <SheetsSetupSection />
+
+        <CashQuickSection />
 
         <NavVisibilitySection current={s.nav_visibility} setMut={setMut} />
 
@@ -626,6 +627,244 @@ const fmtBytes = (b) => b >= 1_048_576
   ? `${(b / 1_048_576).toFixed(1)} MB`
   : `${(b / 1024).toFixed(0)} KB`
 
+const SCRIPT_URL = import.meta.env.VITE_APPS_SCRIPT_URL || ''
+
+function SheetsSetupSection() {
+  const [loading, setLoading] = useState(false)
+  const [result,  setResult]  = useState(/** @type {string|null} */ (null))
+
+  if (!SCRIPT_URL) return null
+
+  const handleSetup = async () => {
+    setLoading(true)
+    setResult(null)
+    try {
+      const url = `${SCRIPT_URL}?action=setup`
+      const res  = await fetch(url)
+      const json = await res.json()
+      if (json.ok) {
+        setResult('Hojas inicializadas correctamente.')
+      } else {
+        setResult(`Error: ${json.error?.message ?? 'desconocido'}`)
+      }
+    } catch (err) {
+      setResult(`Error de red: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Database className="h-4 w-4 text-muted-foreground" />
+          Inicializar hojas en Google Sheets
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          Crea las hojas que faltan en el spreadsheet (cash_sessions, cash_movements, etc.). Seguro ejecutar más de una vez — no borra datos existentes.
+        </p>
+        {result && (
+          <p className={`text-xs ${result.startsWith('Error') ? 'text-destructive' : 'text-green-600'}`}>
+            {result}
+          </p>
+        )}
+        <Button size="sm" variant="outline" onClick={handleSetup} disabled={loading}>
+          <Database className="mr-2 h-3.5 w-3.5" />
+          {loading ? 'Inicializando...' : 'Ejecutar setupSheets()'}
+        </Button>
+      </CardContent>
+    </Card>
+  )
+}
+
+function CashQuickSection() {
+  const { user } = useAuthContext()
+  const [loading, setLoading] = useState(false)
+  const [openModal, setOpenModal] = useState(false)
+  const [amount, setAmount] = useState('100')
+  const [session, setSession] = useState(/** @type {any} */ (null))
+
+  useEffect(() => {
+    cashService.getOpenSession().then(s => setSession(s)).catch(() => {})
+  }, [])
+
+  const handleOpen = async () => {
+    setLoading(true)
+    try {
+      const s = await cashService.openSession({
+        userId:        user?.id       ?? 0,
+        userName:      user?.full_name ?? 'Admin',
+        role:          user?.role      ?? 'admin',
+        openingAmount: Number(amount) || 0,
+        // campos web adapter
+        opened_by:      user?.id       ?? 0,
+        opened_by_name: user?.full_name ?? 'Admin',
+        opening_amount: Number(amount) || 0,
+      })
+      setSession(s)
+      setOpenModal(false)
+      toast.success('Caja abierta correctamente')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al abrir caja')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleClose = async () => {
+    if (!session) return
+    setLoading(true)
+    try {
+      await cashService.closeSession({
+        id:             session.id,
+        userId:         user?.id       ?? 0,
+        userName:       user?.full_name ?? 'Admin',
+        role:           user?.role      ?? 'admin',
+        closingAmount:  session.opening_amount,
+        // campos web adapter
+        closed_by:      user?.id       ?? 0,
+        closed_by_name: user?.full_name ?? 'Admin',
+        closing_amount: session.opening_amount,
+        expected_amount: session.opening_amount,
+      })
+      setSession(null)
+      toast.success('Caja cerrada')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al cerrar caja')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <>
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <LockOpen className="h-4 w-4 text-muted-foreground" />
+            Caja rápida
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            {session
+              ? `Caja abierta desde ${new Date(session.opened_at).toLocaleTimeString('es-GT')} — Monto inicial: Q${session.opening_amount}`
+              : 'No hay caja abierta.'}
+          </p>
+          {!session ? (
+            <Button size="sm" onClick={() => setOpenModal(true)} disabled={loading}>
+              <LockOpen className="mr-2 h-3.5 w-3.5" />
+              Abrir caja
+            </Button>
+          ) : (
+            <Button size="sm" variant="destructive" onClick={handleClose} disabled={loading}>
+              {loading ? 'Cerrando...' : 'Cerrar caja'}
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={openModal} onOpenChange={setOpenModal}>
+        <DialogContent className="sm:max-w-xs">
+          <DialogHeader>
+            <DialogTitle>Abrir caja</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Field label="Monto inicial en caja (Q)" hint="Ingresa el efectivo con el que inicia el turno.">
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={amount}
+                onChange={e => setAmount(e.target.value)}
+              />
+            </Field>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" size="sm" onClick={() => setOpenModal(false)}>Cancelar</Button>
+            <Button size="sm" onClick={handleOpen} disabled={loading}>
+              {loading ? 'Abriendo...' : 'Abrir caja'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
+
+function CloudSyncSection() {
+  const qc = useQueryClient()
+  const [syncing,  setSyncing]  = useState(false)
+  const [lastSync, setLastSync] = useState(/** @type {string|null} */ (localStorage.getItem('last_cloud_sync')))
+  const [syncError, setSyncError] = useState(/** @type {string|null} */ (null))
+
+  useEffect(() => {
+    if (!isElectron) return
+    const stop = startAutoSync(({ syncing: s, lastSync: ls, error }) => {
+      setSyncing(s)
+      if (ls) setLastSync(ls)
+      setSyncError(error)
+      if (!s && !error) {
+        // Refresca queries afectadas por el pull
+        qc.invalidateQueries()
+      }
+    })
+    return stop
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleSync = async () => {
+    setSyncing(true)
+    setSyncError(null)
+    try {
+      await syncBidirectional()
+      const now = new Date().toISOString()
+      localStorage.setItem('last_cloud_sync', now)
+      setLastSync(now)
+      qc.invalidateQueries()
+      toast.success('Sincronización completada')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error al sincronizar'
+      setSyncError(msg)
+      toast.error(msg)
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  if (!isElectron) return null
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <CloudUpload className="h-4 w-4 text-muted-foreground" />
+          Sincronización con la nube
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          Sync automático cada 15 min: sube datos locales a Google Sheets y descarga cambios de productos, clientes y categorías.
+        </p>
+        {lastSync && (
+          <p className="text-xs text-muted-foreground">
+            Última sync: {new Intl.DateTimeFormat('es-GT', { dateStyle: 'short', timeStyle: 'short', hour12: false }).format(new Date(lastSync))}
+          </p>
+        )}
+        {syncError && (
+          <p className="text-xs text-destructive">{syncError}</p>
+        )}
+        <Button onClick={handleSync} disabled={syncing} size="sm">
+          <CloudUpload className="mr-2 h-3.5 w-3.5" />
+          {syncing ? 'Sincronizando...' : 'Sincronizar ahora'}
+        </Button>
+      </CardContent>
+    </Card>
+  )
+}
+
 /** @param {string} iso */
 const fmtDate = (iso) => new Intl.DateTimeFormat('es-GT', {
   dateStyle: 'short', timeStyle: 'short', hour12: false,
@@ -634,7 +873,7 @@ const fmtDate = (iso) => new Intl.DateTimeFormat('es-GT', {
 /** @param {{ settings: Record<string,unknown> }} p */
 function BackupSection({ settings: s }) {
   const qc  = useQueryClient()
-  const api = /** @type {any} */ (window.api)
+  const api = /** @type {any} */ (isElectron ? window.api : null)
 
   // Intervalo actual leído de settings (default mensual)
   const savedHours = Number(s.backup_interval_hours ?? 720) || 720
@@ -653,12 +892,15 @@ function BackupSection({ settings: s }) {
   useEffect(() => { setIntervalHours(savedHours) }, [savedHours])
   useEffect(() => { setMaxCopies(savedMax) }, [savedMax])
 
-  // Cargar lista de backups automáticos al montar
+  // Cargar lista de backups automáticos al montar (solo Electron)
   useEffect(() => {
+    if (!api) return
     api.db.listBackups().then((/** @type {any} */ res) => {
       if (res.ok) setBackups(res.data)
     })
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!isElectron) return null
 
   async function handleBackupNow() {
     setLoadingNow(true)

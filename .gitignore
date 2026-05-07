@@ -19,3 +19,8 @@ out/
 *.exe
 *.AppImage
 *.asar
+
+# env secrets — nunca commitear
+.env.local
+.env*.local
+*.sqlite

@@ -71,7 +71,7 @@ function buildSessionHtml(detail) {
   <h2>Movimientos manuales</h2>
   <table><thead><tr><th>Tipo</th><th>Concepto</th><th>Monto</th><th>Hora</th></tr></thead>
   <tbody>${movRows}</tbody></table>` : ''}
-  <div class="footer">Mangueras del Sur · ${new Date().toLocaleString('es-GT')}</div>
+  <div class="footer">Ferreteria El Esfuerzo · ${new Date().toLocaleString('es-GT')}</div>
   </body></html>`
 }
 

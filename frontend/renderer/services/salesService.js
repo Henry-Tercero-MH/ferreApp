@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { isElectron, get, envelope } from './webApiService.js'
 import {
   saleCreatedSchema,
   saleInputSchema,
@@ -27,49 +28,6 @@ export const dailyReportSchema = z.object({
 })
 
 /** @typedef {import('zod').infer<typeof dailyReportSchema>} DailyReport */
-
-/**
- * @param {import('@/schemas/sale.schema.js').SaleInput} saleInput
- * @returns {Promise<import('@/schemas/sale.schema.js').SaleCreated>}
- */
-export async function create(saleInput) {
-  const safe = saleInputSchema.parse(saleInput)
-  const res = await window.api.sales.create(safe)
-  return unwrap('sales:create', res, saleCreatedSchema)
-}
-
-/**
- * @param {number} id
- * @returns {Promise<import('@/schemas/sale.schema.js').SaleWithItems | null>}
- */
-export async function getById(id) {
-  const res = await window.api.sales.getById(id)
-  return unwrap('sales:get-by-id', res, saleWithItemsSchema.nullable())
-}
-
-/**
- * @param {{ page?: number, pageSize?: number }} [opts]
- * @returns {Promise<import('@/schemas/sale.schema.js').SaleList>}
- */
-export async function list(opts = {}) {
-  const res = await window.api.sales.list(opts)
-  return unwrap('sales:list', res, saleListSchema)
-}
-
-/** @returns {Promise<DailyReport>} */
-export async function dailyReport() {
-  const res = await window.api.sales.dailyReport()
-  return unwrap('sales:daily-report', res, dailyReportSchema)
-}
-
-/**
- * @param {import('@/schemas/audit.schema.js').z.infer<typeof voidSaleInputSchema>} input
- */
-export async function voidSale(input) {
-  const safe = voidSaleInputSchema.parse(input)
-  const res  = await window.api.sales.void(safe)
-  return unwrap('sales:void', res, voidSaleResultSchema)
-}
 
 export const rangeReportSchema = z.object({
   series: z.array(z.object({
@@ -104,11 +62,85 @@ export const rangeReportSchema = z.object({
 
 /** @typedef {import('zod').infer<typeof rangeReportSchema>} RangeReport */
 
-/**
- * @param {{ from: string, to: string }} range  Formato YYYY-MM-DD
- * @returns {Promise<RangeReport>}
- */
-export async function rangeReport(range) {
-  const res = await window.api.sales.rangeReport(range)
-  return unwrap('sales:range-report', res, rangeReportSchema)
+/** @returns {any} */
+const _api = () => (/** @type {any} */ (window.api)).sales
+
+// ─── Coerción para filas de Sheets ───────────────────────────
+
+/** @param {any} r */
+function _coerceSale(r) {
+  return {
+    ...r,
+    id:                     Number(r.id)                     || 0,
+    subtotal:               Number(r.subtotal)               || 0,
+    tax_rate_applied:       Number(r.tax_rate ?? r.tax_rate_applied) || 0,
+    tax_amount:             Number(r.tax_amount)             || 0,
+    total:                  Number(r.total)                  || 0,
+    currency_code:          r.currency_code                  || 'GTQ',
+    date:                   r.date                           || '',
+    customer_id:            r.customer_id !== '' && r.customer_id != null ? Number(r.customer_id) : null,
+    customer_name_snapshot: r.customer_name_snapshot         || null,
+    customer_nit_snapshot:  r.customer_nit_snapshot          || null,
+    payment_method:         r.payment_method                 || null,
+    client_type:            r.client_type                    || null,
+    status:                 r.status === 'voided' ? 'voided' : 'active',
+  }
 }
+
+// ─── Adaptador Electron ──────────────────────────────────────
+
+const ipc = {
+  create:      (/** @type {any} */ saleInput) => { const safe = saleInputSchema.parse(saleInput); return _api().create(safe).then((/** @type {any} */ r) => unwrap('sales:create', r, saleCreatedSchema)) },
+  getById:     (/** @type {any} */ id) => _api().getById(id).then((/** @type {any} */ r) => unwrap('sales:get-by-id', r, saleWithItemsSchema.nullable())),
+  list:        (/** @type {any} */ opts) => _api().list(opts ?? {}).then((/** @type {any} */ r) => unwrap('sales:list', r, saleListSchema)),
+  dailyReport: () => _api().dailyReport().then((/** @type {any} */ r) => unwrap('sales:daily-report', r, dailyReportSchema)),
+  voidSale:    (/** @type {any} */ input) => { const safe = voidSaleInputSchema.parse(input); return _api().void(safe).then((/** @type {any} */ r) => unwrap('sales:void', r, voidSaleResultSchema)) },
+  rangeReport: (/** @type {any} */ range) => (/** @type {any} */ (window.api)).sales.rangeReport(range).then((/** @type {any} */ r) => unwrap('sales:range-report', r, rangeReportSchema)),
+}
+
+// ─── Adaptador Web (Apps Script) ─────────────────────────────
+
+const web = {
+  create:  async () => { throw new Error('Ventas no disponibles en versión web') },
+
+  getById: async (/** @type {any} */ id) => {
+    const [saleRows, itemRows] = await Promise.all([
+      get('sales', { id: String(id) }),
+      get('sale_items', { limit: 5000 }),
+    ])
+    const sale = (/** @type {any[]} */ (saleRows))[0]
+    if (!sale) return null
+    const coerced = _coerceSale(sale)
+    const items = (/** @type {any[]} */ (itemRows))
+      .filter(i => String(i.sale_id) === String(id))
+      .map(i => ({
+        id:           Number(i.id)           || 0,
+        sale_id:      Number(i.sale_id)      || 0,
+        product_id:   Number(i.product_id)   || 0,
+        qty:          Number(i.qty)          || 0,
+        price:        Number(i.price)        || 0,
+        product_code: i.product_code         || null,
+        product_name: i.product_name         || '',
+      }))
+    return saleWithItemsSchema.parse({ ...coerced, items })
+  },
+
+  list: async (/** @type {any} */ opts) => {
+    const rows = await get('sales', { limit: 5000 })
+    const data = (/** @type {any[]} */ (rows)).map(_coerceSale)
+    const page     = Number(opts?.page)     || 1
+    const pageSize = Number(opts?.pageSize) || 50
+    return saleListSchema.parse({ data, total: data.length, page, pageSize })
+  },
+
+  dailyReport: async () => dailyReportSchema.parse({ summary: null, topProducts: [] }),
+  voidSale:    async () => { throw new Error('No disponible en versión web') },
+  rangeReport: async () => rangeReportSchema.parse({ series: [], topProducts: [], byHour: [], byWeekday: [], byPaymentMethod: [] }),
+}
+
+export const create      = isElectron ? ipc.create      : web.create
+export const getById     = isElectron ? ipc.getById     : web.getById
+export const list        = isElectron ? ipc.list        : web.list
+export const dailyReport = isElectron ? ipc.dailyReport : web.dailyReport
+export const voidSale    = isElectron ? ipc.voidSale    : web.voidSale
+export const rangeReport = isElectron ? ipc.rangeReport : web.rangeReport

@@ -204,6 +204,10 @@ export function createSalesService(repo, settings, customers, audit) {
       return { ...sale, items }
     },
 
+    listAllItems() {
+      return repo.findAllSaleItems()
+    },
+
     /**
      * @param {{ page?: number, pageSize?: number }} [opts]
      * @returns {SaleListResult}

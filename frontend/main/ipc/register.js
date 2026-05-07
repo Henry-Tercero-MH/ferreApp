@@ -239,6 +239,110 @@ export function bootstrap() {
   // Arranca el scheduler con los valores configurados
   startBackupSchedule(db, intervalHours, maxCopies)
 
+  // ── Cloud pull bidireccional ─────────────────────────────────
+  // Aplica datos descargados desde Google Sheets en SQLite usando UPSERT.
+  // Solo sobreescribe campos que el usuario puede editar en Sheets:
+  // products (precio, stock, datos básicos), customers, categories.
+  ipcMain.handle('cloud:apply-pull', (_e, data) => {
+    try {
+      const results = {}
+
+      // ── productos ──────────────────────────────────────────
+      if (Array.isArray(data?.products) && data.products.length > 0) {
+        const upsertProduct = db.prepare(`
+          INSERT INTO products (id, code, name, price, cost, stock, min_stock, category, brand, location, condition, is_active)
+          VALUES (@id, @code, @name, @price, @cost, @stock, @min_stock, @category, @brand, @location, @condition, @is_active)
+          ON CONFLICT(id) DO UPDATE SET
+            name      = excluded.name,
+            price     = excluded.price,
+            stock     = excluded.stock,
+            min_stock = excluded.min_stock,
+            category  = excluded.category,
+            brand     = excluded.brand,
+            location  = excluded.location,
+            condition = excluded.condition,
+            is_active = excluded.is_active
+        `)
+        const applyProducts = db.transaction((rows) => {
+          for (const r of rows) {
+            upsertProduct.run({
+              id:        Number(r.id)       || 0,
+              code:      r.code             ?? '',
+              name:      r.name             ?? '',
+              price:     Number(r.price)    || 0,
+              cost:      Number(r.cost)     || 0,
+              stock:     Number(r.stock)    || 0,
+              min_stock: Number(r.min_stock)|| 0,
+              category:  r.category         ?? '',
+              brand:     r.brand            ?? '',
+              location:  r.location         ?? '',
+              condition: r.condition        ?? '',
+              is_active: Number(r.is_active) === 0 ? 0 : 1,
+            })
+          }
+        })
+        applyProducts(data.products)
+        results.products = { applied: data.products.length }
+      }
+
+      // ── clientes ───────────────────────────────────────────
+      if (Array.isArray(data?.customers) && data.customers.length > 0) {
+        const upsertCustomer = db.prepare(`
+          INSERT INTO customers (id, nit, name, email, phone, address, active)
+          VALUES (@id, @nit, @name, @email, @phone, @address, @active)
+          ON CONFLICT(id) DO UPDATE SET
+            nit     = excluded.nit,
+            name    = excluded.name,
+            email   = excluded.email,
+            phone   = excluded.phone,
+            address = excluded.address,
+            active  = excluded.active
+        `)
+        const applyCustomers = db.transaction((rows) => {
+          for (const r of rows) {
+            upsertCustomer.run({
+              id:      Number(r.id)      || 0,
+              nit:     r.nit             ?? 'C/F',
+              name:    r.name            ?? '',
+              email:   r.email           || null,
+              phone:   r.phone           || null,
+              address: r.address         || null,
+              active:  Number(r.active) === 0 ? 0 : 1,
+            })
+          }
+        })
+        applyCustomers(data.customers)
+        results.customers = { applied: data.customers.length }
+      }
+
+      // ── categorías ─────────────────────────────────────────
+      if (Array.isArray(data?.categories) && data.categories.length > 0) {
+        const upsertCategory = db.prepare(`
+          INSERT INTO categories (id, name, is_active)
+          VALUES (@id, @name, @is_active)
+          ON CONFLICT(id) DO UPDATE SET
+            name      = excluded.name,
+            is_active = excluded.is_active
+        `)
+        const applyCategories = db.transaction((rows) => {
+          for (const r of rows) {
+            upsertCategory.run({
+              id:        Number(r.id)        || 0,
+              name:      r.name              ?? '',
+              is_active: Number(r.is_active) === 0 ? 0 : 1,
+            })
+          }
+        })
+        applyCategories(data.categories)
+        results.categories = { applied: data.categories.length }
+      }
+
+      return { ok: true, data: results }
+    } catch (err) {
+      return { ok: false, error: { code: 'CLOUD_PULL_ERROR', message: String(err.message) } }
+    }
+  })
+
   // ── Assets estáticos (logo, etc.) ───────────────────────────
   ipcMain.handle('app:read-asset', async (_e, filename) => {
     try {

@@ -374,6 +374,20 @@ export interface CustomerBalance {
   balance: number
 }
 
+export interface CloudPullData {
+  products?:   unknown[]
+  customers?:  unknown[]
+  categories?: unknown[]
+  suppliers?:  unknown[]
+}
+
+export interface CloudPullResult {
+  products?:   { applied: number }
+  customers?:  { applied: number }
+  categories?: { applied: number }
+  suppliers?:  { applied: number }
+}
+
 export interface RendererApi {
   settings: {
     getAll():                                        Promise<IpcResponse<SettingsByCategory>>
@@ -449,6 +463,25 @@ export interface RendererApi {
   license: {
     status():                           Promise<IpcResponse<{ activated: boolean }>>
     activate(token: string):            Promise<IpcResponse<{ activated: boolean }>>
+  }
+  cloud: {
+    applyPull(data: CloudPullData):     Promise<IpcResponse<CloudPullResult>>
+  }
+  categories: {
+    list():                             Promise<IpcResponse<unknown[]>>
+    listActive():                       Promise<IpcResponse<unknown[]>>
+    create(name: string):               Promise<IpcResponse<unknown>>
+    update(id: number, name: string):   Promise<IpcResponse<unknown>>
+    setActive(id: number, active: boolean): Promise<IpcResponse<unknown>>
+  }
+  expenses: {
+    list(opts?: unknown):               Promise<IpcResponse<unknown[]>>
+    get(id: number):                    Promise<IpcResponse<unknown>>
+    create(input: unknown):             Promise<IpcResponse<unknown>>
+    update(id: number, input: unknown): Promise<IpcResponse<unknown>>
+    remove(id: number):                 Promise<IpcResponse<unknown>>
+    summary(from: string, to: string):  Promise<IpcResponse<unknown>>
+    categories():                       Promise<IpcResponse<unknown[]>>
   }
   receivables: {
     list():                                              Promise<IpcResponse<ReceivableRow[]>>

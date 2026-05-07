@@ -18,6 +18,11 @@ export function createCashService(repo) {
       return repo.findAll()
     },
 
+    /** Lista todos los movimientos de caja (para sync) */
+    listAllMovements() {
+      return repo.findAllMovements()
+    },
+
     /**
      * @param {number} sessionId
      */
