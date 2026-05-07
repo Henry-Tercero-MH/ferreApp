@@ -1,34 +1,25 @@
 // ─── Sync Service ────────────────────────────────────────────
-// Maneja sincronización bidireccional entre SQLite (Electron) y Google Sheets.
-// Solo funciona en Electron (tiene window.api).
+// Maneja sincronización bidireccional inteligente entre SQLite (Electron) y Google Sheets.
+// - PUSH: SQLite → Sheets (bulk completo)
+// - PULL: Sheets → SQLite (merge con conflictos: ID más alto + timestamp)
+// - Auto-sync cada 15 minutos
 
 const SCRIPT_URL = import.meta.env.VITE_APPS_SCRIPT_URL || ''
-
-// Hojas que se descargan desde Sheets hacia SQLite en el pull bidireccional
-const PULL_SHEETS = ['products', 'customers', 'categories']
 
 /** @param {any} p @returns {any[]} */
 const _safe = (p) => p.then((/** @type {any} */ r) => r.ok ? (r.data?.data ?? r.data ?? []) : []).catch(() => [])
 
+/**
+ * Construye payload completo de SQLite para enviar a Sheets.
+ * Excluye password_hash de usuarios.
+ */
 async function _buildPayload() {
   const api = /** @type {any} */ (window.api)
 
   const [
-    products,
-    categories,
-    customers,
-    users,
-    expenses,
-    auditRaw,
-    suppliers,
-    salesRaw,
-    saleItemsRaw,
-    purchasesRaw,
-    cashSessionsRaw,
-    cashMovementsRaw,
-    receivablesRaw,
-    quotesRaw,
-    stockMovementsRaw,
+    products, categories, customers, users, expenses, auditRaw, suppliers,
+    salesRaw, saleItemsRaw, purchasesRaw, cashSessionsRaw, cashMovementsRaw,
+    receivablesRaw, quotesRaw, stockMovementsRaw,
   ] = await Promise.all([
     _safe(api.products.list()),
     _safe(api.categories.list()),
@@ -47,7 +38,6 @@ async function _buildPayload() {
     _safe(api.inventory.movements({ pageSize: 5000 })),
   ])
 
-  // Extraer items de órdenes de compra
   const purchaseItems = (/** @type {any[]} */ (purchasesRaw)).flatMap(
     (/** @type {any} */ o) => (o.items ?? []).map((/** @type {any} */ i) => ({ ...i, order_id: o.id }))
   )
@@ -63,39 +53,28 @@ async function _buildPayload() {
   })
 
   return {
-    products,
-    categories,
-    customers,
-    users:           safeUsers,
-    expenses,
-    audit_log:       auditRaw,
-    suppliers,
-    sales,
-    sale_items:      saleItemsRaw,
+    products, categories, customers, users: safeUsers, expenses,
+    audit_log: auditRaw, suppliers, sales, sale_items: saleItemsRaw,
     purchase_orders: purchasesRaw.map((/** @type {any} */ o) => { const { items: _i, ...rest } = o; return rest }),
-    purchase_items:  purchaseItems,
-    cash_sessions:   cashSessionsRaw,
-    cash_movements:  cashMovementsRaw,
-    receivables:     receivablesRaw,
-    quotes:          quotesRaw,
+    purchase_items: purchaseItems,
+    cash_sessions: cashSessionsRaw, cash_movements: cashMovementsRaw,
+    receivables: receivablesRaw, quotes: quotesRaw,
     stock_movements: Array.isArray(stockMovementsRaw) ? stockMovementsRaw : [],
   }
 }
 
 /**
- * Sube datos SQLite → Google Sheets.
- * @returns {Promise<{ ok: boolean, results?: object, error?: string }>}
+ * PUSH: Sube datos SQLite → Google Sheets (bulk completo).
  */
 export async function syncToCloud() {
   if (!SCRIPT_URL) return { ok: false, error: 'VITE_APPS_SCRIPT_URL no configurado' }
   if (!window?.api) return { ok: false, error: 'Solo disponible en Electron' }
 
   const payload = await _buildPayload()
-
-  const res  = await fetch(SCRIPT_URL, {
-    method : 'POST',
+  const res = await fetch(SCRIPT_URL, {
+    method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
-    body   : JSON.stringify({ action: 'sync', payload }),
+    body: JSON.stringify({ action: 'sync', payload }),
   })
 
   const json = await res.json()
@@ -104,34 +83,33 @@ export async function syncToCloud() {
 }
 
 /**
- * Descarga datos Google Sheets → SQLite (solo tablas editables).
- * @returns {Promise<{ ok: boolean, results?: object, error?: string }>}
+ * PULL: Descarga datos Google Sheets → SQLite con merge inteligente.
+ * Criterio: ID más alto + timestamp más reciente gana.
  */
 export async function pullFromCloud() {
   if (!SCRIPT_URL) return { ok: false, error: 'VITE_APPS_SCRIPT_URL no configurado' }
   if (!window?.api) return { ok: false, error: 'Solo disponible en Electron' }
 
   const res = await fetch(SCRIPT_URL, {
-    method : 'POST',
+    method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
-    body   : JSON.stringify({ action: 'pull', sheets: PULL_SHEETS }),
+    body: JSON.stringify({ action: 'pull' }),
   })
 
   const json = await res.json()
   if (!json.ok) throw new Error(json.error?.message || 'Error al descargar desde la nube')
 
-  // Aplica los datos descargados en SQLite via IPC
+  // Aplica merge inteligente en SQLite (ID + timestamp)
   const result = await (/** @type {any} */ (window.api)).cloud.applyPull(json.data)
-  if (!result.ok) throw new Error(result.error?.message || 'Error al aplicar cambios locales')
+  if (!result.ok) throw new Error(result.error?.message || 'Error al aplicar cambios')
 
   return result.data
 }
 
 /**
  * Sincronización completa bidireccional:
- *   1. Sube SQLite → Sheets (push)
- *   2. Descarga Sheets → SQLite (pull) para tablas editables
- * @returns {Promise<{ pushed: object, pulled: object }>}
+ * 1. PUSH: SQLite → Sheets
+ * 2. PULL: Sheets → SQLite (merge inteligente)
  */
 export async function syncBidirectional() {
   if (!SCRIPT_URL) throw new Error('VITE_APPS_SCRIPT_URL no configurado')
@@ -149,7 +127,6 @@ export async function syncBidirectional() {
 }
 
 // ─── Auto-sync ────────────────────────────────────────────────
-// Intervalo de sincronización automática en milisegundos
 
 const AUTO_SYNC_INTERVAL_MS = 15 * 60 * 1000 // 15 minutos
 
@@ -157,8 +134,9 @@ const AUTO_SYNC_INTERVAL_MS = 15 * 60 * 1000 // 15 minutos
 let _autoSyncTimer = null
 
 /**
- * Inicia el ciclo de sync automático.
- * Ejecuta una sync inmediata y luego repite cada AUTO_SYNC_INTERVAL_MS.
+ * Inicia sync automática cada 15 minutos.
+ * - Sync inmediata al arrancar (delay 3s)
+ * - Luego sync periódica
  * @param {(status: { syncing: boolean, lastSync: string|null, error: string|null }) => void} onStatus
  */
 export function startAutoSync(onStatus) {
@@ -177,15 +155,13 @@ export function startAutoSync(onStatus) {
     }
   }
 
-  // Sync inmediata al arrancar (con pequeño delay para que la UI esté lista)
   const firstRun = setTimeout(runSync, 3000)
-  // Sync periódica
   _autoSyncTimer = setInterval(runSync, AUTO_SYNC_INTERVAL_MS)
 
   const timer = _autoSyncTimer
   return () => {
     clearTimeout(firstRun)
-    if (timer !== null) clearInterval(timer)
+    if (timer) clearInterval(timer)
     _autoSyncTimer = null
   }
 }

@@ -1,6 +1,7 @@
 import { productListSchema, productSchema } from '@/schemas/product.schema.js'
 import { unwrap } from './ipc.js'
 import { isElectron, get, insert, update as webUpdate, remove as webRemove, upsert, envelope } from './webApiService.js'
+import { getNextId } from './cloudIdService.js'
 
 // ─── Adaptador Electron ──────────────────────────────────────
 
@@ -75,7 +76,11 @@ export async function getById(id) {
 
 /** @param {import('@/schemas/product.schema.js').ProductInput} input */
 export async function create(input) {
-  const res = await api.create(input)
+  const data = /** @type {any} */ (input)
+  if (!data.id) {
+    data.id = await getNextId('products')
+  }
+  const res = await api.create(data)
   return unwrap('products:create', res, productSchema)
 }
 

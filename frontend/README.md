@@ -1,7 +1,8 @@
 # GestorERP — Mangueras del Sur
 
-> Sistema ERP de escritorio offline para talleres y negocios pequeños.  
-> Electron 30 + React 18 + SQLite (better-sqlite3). Corre en Windows/Linux sin internet.
+> **Sistema ERP hybrid cloud-first** para talleres y negocios pequeños.  
+> Desktop (Electron + SQLite) ↔ Cloud sync (Google Sheets) ↔ Web (React/Vercel).  
+> Funciona offline, sincroniza automáticamente, accesible desde tablet/web.
 
 ---
 
@@ -19,6 +20,55 @@ npm run build                            # genera instalador en release/
 
 ---
 
+## 🔄 Sincronización Bidireccional
+
+**Arquitectura cloud-hybrid:**
+
+```
+┌──────────────────┐      ┌──────────────────────┐      ┌──────────────────┐
+│   Electron       │      │ Google Sheets        │      │  Web (Vercel)    │
+│ (Desktop)        │      │ (Cloud Hub)          │      │  (React/Vite)    │
+├──────────────────┤      ├──────────────────────┤      ├──────────────────┤
+│ • SQLite local   │←────→│ Apps Script + Sheets │←────→│ • Lectura datos  │
+│ • CRUD completo  │ PUSH │ • Sincronización     │ PULL │ • Actualizar     │
+│ • Facturas       │ PULL │ • Merge inteligente  │      │   precios        │
+│ • Offline OK     │      │ • Drive: imágenes    │      │ • Cotizaciones   │
+│                  │      │                      │      │ • Facturas (*)   │
+└──────────────────┘      └──────────────────────┘      └──────────────────┘
+        ↓                         ↓                             ↓
+    MASTER                    ESPEJO                      LECTURA + WRITE
+    (datos completos)         (datos sincronizados)       (*excepcional)
+```
+
+**Ciclo de sincronización automática (cada 15 minutos):**
+
+1. **PUSH** (Electron → Sheets): Envía todos los datos de SQLite a Google Sheets
+2. **PULL** (Sheets → Electron): Descarga cambios con merge inteligente
+   - **Criterio de conflictos:** ID más alto + timestamp más reciente gana
+   - Si el mismo registro se edita en Electron y Web al mismo tiempo:
+     - ID más alto siempre prevalece
+     - Si mismo ID, timestamp gana
+   - Todos los módulos sincronizan: products, sales, customers, receivables, etc.
+
+**Sincronización de IDs a demanda (ON-DEMAND):**
+- Cuando vaya a crear un registro (cotización, producto, etc.):
+  - Consulta `cloud:get-next-id('quotes')` → obtiene maxId + 1
+  - Usa ese ID localmente
+  - No espera 15 minutos ⚡
+- Ejemplo: crear cotización con ID automático sin conflictos
+  ```js
+  import { getNextId } from '@/services/cloudIdService'
+  const id = await getNextId('quotes')
+  await api.quotes.create({ id, customer_id: 5, ... })
+  ```
+
+**Uso esperado:**
+- **Electron (local):** Operaciones normales (facturas, inventario, CRUD)
+- **Web (Vercel):** Visualización de datos + cambios puntuales (precios, cotizaciones)
+- **Google Sheets:** Hub central, respaldo automático de datos
+
+---
+
 ## Arquitectura
 
 ```
@@ -32,8 +82,13 @@ GestorERP/
 │   │   ├── migrator.js     Runner con checksum SHA-256 (nunca edites una migración ya aplicada)
 │   │   ├── backup.js       Hot Backup automático (SQLite API) con scheduler configurable
 │   │   └── migrations/     001–023 archivos SQL versionados
-│   └── modules/            Un directorio por dominio, cada uno con:
-│       └── <dominio>/      *.repository.js · *.service.js · *.ipc.js
+│   └── modules/
+│       ├── cloud/          ✨ Sincronización bidireccional (NUEVO)
+│       │   ├── cloud.repository.js  Merge inteligente por ID + timestamp
+│       │   ├── cloud.service.js     Lógica de conflictos y tablas sincronizables
+│       │   └── cloud.ipc.js         Handlers: metadata, changes, apply-pull, etc.
+│       └── <otros>/        Un módulo por dominio con:
+│           └── *.repository.js · *.service.js · *.ipc.js
 │
 └── renderer/               Proceso React (Vite)
     ├── main.jsx            Entry point: QueryProvider + AuthProvider + RouterProvider
@@ -268,6 +323,126 @@ Los assets de logo deben estar en `renderer/assets/` (no en `public/`) para que 
 
 ---
 
+## Módulo Cloud — Sincronización Inteligente
+
+### Handlers IPC disponibles
+
+| Handler | Función | Retorno |
+|---------|---------|---------|
+| `cloud:metadata` | Obtiene maxId y lastUpdate de cada tabla | `{ [table]: { maxId, lastUpdate } }` |
+| `cloud:changes` | Obtiene cambios desde un timestamp | `[records]` |
+| `cloud:apply-pull` | Aplica merge inteligente de Sheets a SQLite | `{ inserted, updated, skipped }` |
+| `cloud:build-payload` | Construye payload completo para PUSH | `{ [table]: [records] }` |
+| `cloud:incremental-changes` | Cambios incrementales por tabla desde lastSync | `{ [table]: [records] }` |
+| `cloud:get-next-id` | ⚡ Obtiene siguiente ID sin esperar 15 min | `number` (maxId + 1) |
+
+### Servicio de IDs a demanda (`cloudIdService.js`)
+
+```js
+import { getNextId, getSyncMetadata } from '@/services/cloudIdService'
+
+// Crear registro con ID automático (sin conflictos)
+const id = await getNextId('quotes')
+await api.quotes.create({ id, customer_id: 5, subtotal: 1000 })
+
+// Obtener metadatos (maxId, lastUpdate por tabla)
+const meta = await getSyncMetadata()
+console.log(meta.quotes)  // { maxId: 42, lastUpdate: '2026-05-07T...' }
+```
+
+**Cómo implementar en todos los módulos:**
+
+**En servicios (renderer/services/*Service.js):**
+```js
+import { getNextId } from './cloudIdService.js'
+
+export async function create(input) {
+  const data = input
+  if (!data.id) {
+    data.id = await getNextId('tableName')  // 'products', 'users', etc.
+  }
+  const res = await api.create(data)
+  return unwrap('module:create', res, schema)
+}
+```
+
+**En hooks (renderer/hooks/use*.js):**
+```js
+import { getNextId } from '@/services/cloudIdService.js'
+
+export function useCreateModule() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input) => {
+      const id = await getNextId('tableName')
+      const res = await window.api.module.create({ id, ...input })
+      if (!res.ok) throw new Error(res.error.message)
+      return res.data
+    },
+    onSuccess: () => qc.invalidateQueries({ ... }),
+  })
+}
+```
+
+**Ventajas:**
+- ✅ Crea registros al instante sin conflictos de ID
+- ✅ No espera 15 minutos de sincronización automática
+- ✅ El siguiente sync (auto) traerá cambios de Sheets y aplicará merge
+- ✅ Funciona offline (IDs incrementan localmente, sincroniza cuando hay conexión)
+
+**Implementado en:**
+- ✅ products (productsService.js)
+- ✅ users (usersService.js)
+- ✅ categories (useCategories.js hook)
+- ⏳ Aplicar el mismo patrón a: quotes, sales, purchases, customers, receivables, expenses, returns
+
+### Flujo de sincronización en detalle
+
+**PUSH (Electron → Sheets):**
+```
+1. syncService.js llama buildPayload() → obtiene todas las tablas de SQLite
+2. Envía POST a Apps Script con { action: 'sync', payload: {...} }
+3. Apps Script reemplaza datos en Sheets (limpia y re-inserta)
+4. Retorna { ok: true, results: { table: { synced: N } } }
+```
+
+**PULL (Sheets → Electron):**
+```
+1. syncService.js envía POST a Apps Script con { action: 'pull' }
+2. Apps Script retorna todas las tablas de Sheets
+3. Electron llama cloud:apply-pull con { tableName: [records] }
+4. cloud.repository.js hace merge inteligente:
+   - Para cada registro remoto:
+     ├─ Si no existe localmente → INSERT
+     └─ Si existe → compara ID + timestamp
+        ├─ ID remoto > ID local → UPDATE local con remote
+        └─ ID remoto = ID local:
+           ├─ timestamp remoto > local → UPDATE
+           └─ timestamp remoto ≤ local → SKIP
+5. Retorna { inserted: N, updated: N, skipped: N }
+```
+
+### Tablas sincronizables
+
+Todas las tablas sincronizan automáticamente:
+```
+products, categories, customers, suppliers, users, sales, sale_items,
+purchases, purchase_orders, purchase_items, receivables, quotes, quote_items,
+expenses, stock_movements, cash_sessions, cash_movements, audit_log, settings
+```
+
+### Criterio de conflictos (ID + Timestamp)
+
+Si el mismo registro se modifica en Electron y Web simultáneamente:
+
+| Escenario | Local | Remote | Ganador | Razón |
+|-----------|-------|--------|---------|-------|
+| ID local: 5, timestamp: 10:00 | Precio $10 | ID: 7, $15 | Remote | ID más alto (7 > 5) |
+| ID local: 5, timestamp: 10:00 | Precio $10 | ID: 5, timestamp: 10:30 | Remote | Mismo ID, timestamp más reciente |
+| ID local: 5, timestamp: 10:30 | Precio $10 | ID: 5, timestamp: 10:00 | Local | Mismo ID, local más reciente |
+
+---
+
 ## Scripts disponibles
 
 ```bash
@@ -281,10 +456,28 @@ npm run typecheck    # TypeScript check (checkJs: true, sin compilar)
 
 ## Notas para desarrollo
 
-- **`window.api`** solo existe en el renderer dentro de Electron, nunca en navegador
+### Sincronización
+- **Auto-sync cada 15 min:** `startAutoSync()` en AppLayout hace PUSH + PULL automáticos
+- **Merge inteligente:** `mergeRecords()` en cloud.repository.js compara ID + timestamp
+- **VITE_APPS_SCRIPT_URL requerido:** Configura en .env.example para que funcione la sync
+- **Todos los módulos sincronizan:** No hay tablas "no sincronizables" (actualiza SYNCABLE_TABLES en cloud.service.js si agregas nuevas tablas)
+- **Offline:** Electron funciona sin internet; sync ocurre cuando hay conexión
+
+### Reglas de negocio
+- **`window.api`** solo existe en Electron, nunca en navegador
 - **Nunca editar** una migración ya aplicada — el checksum SHA-256 lo detectaría
-- **Ventas a crédito** (`payment_method = 'credit'`) no cuentan en cierre de caja ni en `cash_total`
-- **`dailySummary`** incluye el campo `cash_total` (ventas no-crédito activas del día)
-- El **Consumidor Final** es el cliente con `id = 1`, sembrado en migración 004
-- El **admin por defecto** se siembra en migración 006 (ver seed o settings)
-- Para desarrollo con TypeScript: `jsconfig.json` con `checkJs: true` y `api.d.ts` para `window.api`
+- **Ventas a crédito** (`payment_method = 'credit'`) no cuentan en cierre de caja
+- **`dailySummary`** incluye `cash_total` (ventas no-crédito del día)
+- **Consumidor Final:** cliente con `id = 1`, sembrado en migración 004
+- **Admin por defecto:** se siembra en migración 006
+
+### TypeScript
+- Usa `jsconfig.json` con `checkJs: true`
+- Exports de `api.d.ts` para tipado de `window.api`
+
+### Cambios recientes (sincronización bidireccional)
+- ✨ Módulo `cloud/` con merge inteligente
+- ✨ `syncService.js` actualizado con PUSH/PULL por cada ciclo
+- ✨ Apps Script con soporte para pull/sync completo
+- ✨ Merge por ID + timestamp para resolver conflictos
+- ✨ Auto-sync cada 15 minutos (configurable)

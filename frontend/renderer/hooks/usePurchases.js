@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as svc from '@/services/purchasesService.js'
+import { getNextId } from '@/services/cloudIdService.js'
 
 export const purchaseKeys = {
   all:       ['purchases'],
@@ -27,7 +28,11 @@ export function usePurchaseOrder(id) {
 export function useCreateSupplier() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: /** @param {{ input: any, role: string }} v */ (v) => svc.createSupplier(v.input, v.role),
+    /** @param {{ input: any, role: string }} v */
+    mutationFn: async (v) => {
+      const id = await getNextId('suppliers')
+      return svc.createSupplier({ id, ...v.input }, v.role)
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: purchaseKeys.suppliers }),
   })
 }
@@ -51,7 +56,10 @@ export function useSetSupplierActive() {
 export function useCreateOrder() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: svc.createOrder,
+    mutationFn: async (input) => {
+      const id = await getNextId('purchase_orders')
+      return svc.createOrder({ id, ...input })
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: purchaseKeys.orders }),
   })
 }

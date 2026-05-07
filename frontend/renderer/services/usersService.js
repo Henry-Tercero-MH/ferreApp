@@ -1,6 +1,7 @@
 import { userSchema, userListSchema } from '@/schemas/user.schema.js'
 import { unwrap } from './ipc.js'
 import { isElectron, get, insert, update as webUpdate, envelope } from './webApiService.js'
+import { getNextId } from './cloudIdService.js'
 
 const SCRIPT_URL = import.meta.env.VITE_APPS_SCRIPT_URL || ''
 
@@ -83,7 +84,11 @@ export async function getById(id) {
 
 /** @param {object} input */
 export async function create(input) {
-  const res = await api.create(input)
+  const data = /** @type {any} */ (input)
+  if (!data.id) {
+    data.id = await getNextId('users')
+  }
+  const res = await api.create(data)
   return unwrap('users:create', res, userSchema)
 }
 

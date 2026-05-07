@@ -142,7 +142,12 @@ const api = {
     activate: (token) => electron.ipcRenderer.invoke("license:activate", token)
   },
   cloud: {
-    applyPull: (data) => electron.ipcRenderer.invoke("cloud:apply-pull", data)
+    metadata: () => electron.ipcRenderer.invoke("cloud:metadata"),
+    changes: (table, sinceTimestamp) => electron.ipcRenderer.invoke("cloud:changes", table, sinceTimestamp),
+    applyPull: (data) => electron.ipcRenderer.invoke("cloud:apply-pull", data),
+    buildPayload: () => electron.ipcRenderer.invoke("cloud:build-payload"),
+    incrementalChanges: (lastSync) => electron.ipcRenderer.invoke("cloud:incremental-changes", lastSync),
+    getNextId: (tableName) => electron.ipcRenderer.invoke("cloud:get-next-id", tableName)
   }
 };
 electron.contextBridge.exposeInMainWorld("api", api);

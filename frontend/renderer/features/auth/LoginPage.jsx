@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { AlertCircle, LogIn, DatabaseZap } from 'lucide-react'
+import { AlertCircle, LogIn, DatabaseZap, Eye, EyeOff } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,7 +12,6 @@ import { Label } from '@/components/ui/label'
 import { Card } from '@/components/ui/card'
 
 import { useAuthContext } from './AuthContext'
-import { useBusinessSettings } from '@/hooks/useSettings'
 import { ROUTES } from '../../lib/constants'
 import { isElectron } from '@/services/webApiService.js'
 
@@ -21,18 +20,13 @@ const loginSchema = z.object({
   password: z.string().min(1, 'Contraseña requerida'),
 })
 
-/**
- * Login migrado a tokens semanticos + shadcn. Sin CSS legacy.
- * La logica de auth (mock con MOCK_USERS) no se toca: sigue siendo
- * responsabilidad de useAuth/AuthContext.
- */
 export default function LoginPage() {
   const { login } = useAuthContext()
   const navigate = useNavigate()
-  const { name: appName, logo } = useBusinessSettings()
   const [authError,   setAuthError]   = useState(/** @type {string | null} */ (null))
   const [submitting,  setSubmitting]  = useState(false)
   const [setupRunning, setSetupRunning] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   const runSetup = async () => {
     const url = import.meta.env.VITE_APPS_SCRIPT_URL
@@ -92,103 +86,110 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-6"
-      style={{ background: 'var(--sidebar-bg)' }}>
-      <Card className="w-full max-w-6xl border-0 shadow-2xl overflow-hidden">
-        <div className="flex min-h-[600px] lg:min-h-full">
-          {/* Columna izquierda: Logo y branding */}
-          <div className="hidden lg:flex w-1/2 flex-col items-center justify-center overflow-hidden border-r" 
-            style={{ background: 'linear-gradient(135deg, var(--sidebar-bg) 0%, rgba(15, 61, 125, 0.8) 100%)' }}>
-            {logo && (
-              <img src={logo} alt={appName} className="w-full h-full object-cover" />
-            )}
-          </div>
+    <div className="flex h-screen items-center justify-center bg-gray-50">
+      <Card className="w-full max-w-4xl h-[600px] border-0 shadow-2xl overflow-hidden flex">
+        {/* Columna izquierda: Formulario (azul) */}
+        <div className="w-full lg:w-2/5 flex flex-col items-center justify-center px-8 py-6"
+          style={{
+            backgroundColor: '#4a6b8a'
+          }}
+        >
+          <div className="w-full max-w-xs">
+            {/* Header con LOGIN */}
+            <div className="text-center mb-8">
+              <h1 className="text-3xl font-bold text-white tracking-wide">LOGIN</h1>
+            </div>
 
-          {/* Columna derecha: Formulario */}
-          <div className="w-full lg:w-1/2 flex flex-col items-center justify-center p-8">
-            <div className="w-full max-w-md">
-              <div className="items-center text-center lg:hidden mb-6">
-                {logo && (
-                  <img src={logo} alt={appName} className="h-16 w-auto mx-auto mb-4" />
+            {/* Formulario */}
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate>
+              <div className="space-y-1">
+                <Label htmlFor="email" className="text-xs font-medium text-white/90">Correo</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="usuario@empresa.com"
+                  className="h-9 text-sm"
+                  {...form.register('email')}
+                  aria-invalid={form.formState.errors.email ? 'true' : 'false'}
+                />
+                {form.formState.errors.email && (
+                  <p className="text-xs text-destructive">{form.formState.errors.email.message}</p>
                 )}
-                <h2 className="text-2xl font-semibold">{appName}</h2>
-                <p className="text-sm text-muted-foreground">Sistema de Gestion — Taller &amp; POS</p>
-              </div>
-              <div className="hidden lg:block items-center text-center mb-6">
-                <h2 className="text-2xl font-semibold">{appName}</h2>
-                <p className="text-sm text-muted-foreground">Sistema de Gestion — Taller &amp; POS</p>
               </div>
 
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate>
-                <div className="grid gap-2">
-                  <Label htmlFor="email">Correo electronico</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    autoComplete="email"
-                    placeholder="usuario@empresa.com"
-                    {...form.register('email')}
-                    aria-invalid={form.formState.errors.email ? 'true' : 'false'}
-                  />
-                  {form.formState.errors.email && (
-                    <p className="text-xs text-destructive">{form.formState.errors.email.message}</p>
-                  )}
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="password">Contraseña</Label>
+              <div className="space-y-1">
+                <Label htmlFor="password" className="text-xs font-medium text-white/90">Contraseña</Label>
+                <div className="relative">
                   <Input
                     id="password"
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     autoComplete="current-password"
                     placeholder="••••••••"
+                    className="h-9 text-sm pr-9"
                     {...form.register('password')}
                     aria-invalid={form.formState.errors.password ? 'true' : 'false'}
                   />
-                  {form.formState.errors.password && (
-                    <p className="text-xs text-destructive">{form.formState.errors.password.message}</p>
-                  )}
-                </div>
-
-                {authError && (
-                  <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                    <span>{authError}</span>
-                  </div>
-                )}
-
-                <Button
-                  type="submit"
-                  variant="default"
-                  className="w-full"
-                  disabled={submitting}
-                >
-                  <LogIn className="mr-2 h-4 w-4" />
-                  {submitting ? 'Ingresando...' : 'Ingresar'}
-                </Button>
-              </form>
-
-              {!isElectron && (
-                <div className="mt-4 border-t pt-4">
-                  <Button
+                  <button
                     type="button"
-                    variant="outline"
-                    size="sm"
-                    className="w-full text-xs text-muted-foreground"
-                    disabled={setupRunning}
-                    onClick={runSetup}
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    title={showPassword ? 'Ocultar' : 'Mostrar'}
                   >
-                    <DatabaseZap className="mr-2 h-3 w-3" />
-                    {setupRunning ? 'Creando hojas...' : 'Inicializar base de datos en la nube'}
-                  </Button>
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                {form.formState.errors.password && (
+                  <p className="text-xs text-destructive">{form.formState.errors.password.message}</p>
+                )}
+              </div>
+
+              {authError && (
+                <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive">
+                  <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
+                  <span>{authError}</span>
                 </div>
               )}
 
-              <p className="mt-4 text-center text-xs text-muted-foreground/60">
-                &copy; {new Date().getFullYear()} Ferreteria El Esfuerzo. Todos los derechos reservados.
-              </p>
-            </div>
+              <Button
+                type="submit"
+                className="w-full h-9 text-sm font-medium"
+                disabled={submitting}
+              >
+                <LogIn className="mr-2 h-3.5 w-3.5" />
+                {submitting ? 'Ingresando...' : 'Ingresar'}
+              </Button>
+            </form>
+
+            {/* Setup (solo web) */}
+            {!isElectron && (
+              <div className="mt-4 pt-3 border-t">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs h-8"
+                  disabled={setupRunning}
+                  onClick={runSetup}
+                >
+                  <DatabaseZap className="mr-1.5 h-3 w-3" />
+                  {setupRunning ? 'Creando...' : 'Inicializar BD nube'}
+                </Button>
+              </div>
+            )}
+
+            {/* Copyright */}
+            <p className="mt-4 text-center text-xs text-white/50">
+              © {new Date().getFullYear()} Ferretería El Esfuerzo
+            </p>
           </div>
+        </div>
+
+        {/* Columna derecha: Logo + Bienvenido (blanco, solo desktop) */}
+        <div className="hidden lg:flex lg:w-3/5 flex-col items-center justify-center relative overflow-hidden bg-white">
+          <img src="/logoEsfuerzo.png" alt="Ferretería El Esfuerzo" className="w-56 h-auto mb-12 drop-shadow-lg" />
+          <h2 className="text-5xl font-bold text-gray-900 text-center">Bienvenido.</h2>
+          <p className="text-gray-500 mt-3 text-sm">Ferretería El Esfuerzo</p>
         </div>
       </Card>
     </div>

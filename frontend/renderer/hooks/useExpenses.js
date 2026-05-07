@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import * as svc from '@/services/expensesService.js'
+import { getNextId } from '@/services/cloudIdService.js'
 
 const expenseKeys = {
   all:     ['expenses'],
@@ -35,7 +36,12 @@ function useMut(fn, successMsg) {
   })
 }
 
-export function useCreateExpense() { return useMut(svc.createExpense, 'Gasto registrado') }
+export function useCreateExpense() {
+  return useMut(async (input) => {
+    const id = await getNextId('expenses')
+    return svc.createExpense({ id, ...input })
+  }, 'Gasto registrado')
+}
 export function useUpdateExpense() {
   return useMut(({ id, input }) => svc.updateExpense(id, input), 'Gasto actualizado')
 }

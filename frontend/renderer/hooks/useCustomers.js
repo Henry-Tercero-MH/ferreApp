@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import * as customersService from '@/services/customersService.js'
 import { customerKeys } from './queryKeys.js'
 import { useDebouncedValue } from './useDebouncedValue.js'
+import { getNextId } from '@/services/cloudIdService.js'
 
 /**
  * Lista para consumo operativo (POS, etc): solo activos.
@@ -73,7 +74,10 @@ export function useSystemCustomers() {
 export function useCreateCustomer() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: customersService.create,
+    mutationFn: async (input) => {
+      const id = await getNextId('customers')
+      return customersService.create({ id, ...input })
+    },
     onSuccess: (customer) => {
       qc.invalidateQueries({ queryKey: customerKeys.all })
       toast.success(`Cliente creado: ${customer.name}`)

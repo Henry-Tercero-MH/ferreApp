@@ -5,6 +5,7 @@ import * as salesService from '@/services/salesService.js'
 import { productKeys, saleKeys } from './queryKeys.js'
 import { cashKeys } from './useCash.js'
 import { useDebouncedValue } from './useDebouncedValue.js'
+import { getNextId } from '@/services/cloudIdService.js'
 
 /**
  * Lista completa de productos. staleTime largo porque catalogo cambia poco.
@@ -67,7 +68,10 @@ export function useCreateSale() {
   const qc = useQueryClient()
 
   return useMutation({
-    mutationFn: salesService.create,
+    mutationFn: async (input) => {
+      const id = await getNextId('sales')
+      return salesService.create({ id, ...input })
+    },
     onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: productKeys.all })
       qc.invalidateQueries({ queryKey: saleKeys.all })

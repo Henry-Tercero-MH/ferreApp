@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as svc from '@/services/receivablesService.js'
+import { getNextId } from '@/services/cloudIdService.js'
 
 export const receivableKeys = {
   all:           ['receivables'],
@@ -38,7 +39,10 @@ export function useReceivablePaymentsToday() {
 export function useCreateReceivable() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: svc.createReceivable,
+    mutationFn: async (input) => {
+      const id = await getNextId('receivables')
+      return svc.createReceivable({ id, ...input })
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: receivableKeys.all }),
   })
 }

@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import * as svc from '@/services/quotesService.js'
 import { productKeys, saleKeys } from './queryKeys.js'
+import { getNextId } from '@/services/cloudIdService.js'
 
 export const quoteKeys = {
   all:    ['quotes'],
@@ -23,8 +25,15 @@ export function useQuote(id) {
 export function useCreateQuote() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: svc.createQuote,
-    onSuccess: () => qc.invalidateQueries({ queryKey: quoteKeys.all }),
+    mutationFn: async (input) => {
+      const id = await getNextId('quotes')
+      return svc.createQuote({ id, ...input })
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: quoteKeys.all })
+      toast.success('Cotización creada')
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : 'Error'),
   })
 }
 

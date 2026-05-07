@@ -169,7 +169,12 @@ const api = {
   },
 
   cloud: {
+    metadata: () => ipcRenderer.invoke('cloud:metadata'),
+    changes: (table, sinceTimestamp) => ipcRenderer.invoke('cloud:changes', table, sinceTimestamp),
     applyPull: (data) => ipcRenderer.invoke('cloud:apply-pull', data),
+    buildPayload: () => ipcRenderer.invoke('cloud:build-payload'),
+    incrementalChanges: (lastSync) => ipcRenderer.invoke('cloud:incremental-changes', lastSync),
+    getNextId: (tableName) => ipcRenderer.invoke('cloud:get-next-id', tableName),
   },
 }
 

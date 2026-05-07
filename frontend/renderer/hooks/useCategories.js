@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { getNextId } from '@/services/cloudIdService.js'
 
 const catKeys = {
   all:    ['categories'],
@@ -33,7 +34,8 @@ export function useCreateCategory() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (name) => {
-      const res = await window.api.categories.create(name)
+      const id = await getNextId('categories')
+      const res = await window.api.categories.create({ id, name })
       if (!res.ok) throw new Error(res.error.message)
       return res.data
     },

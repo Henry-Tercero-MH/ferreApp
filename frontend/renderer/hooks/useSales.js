@@ -3,6 +3,7 @@ import * as salesService from '@/services/salesService.js'
 import { saleKeys } from './queryKeys.js'
 
 /**
+import { getNextId } from '@/services/cloudIdService.js'
  * Venta individual con sus items. Null si no existe (no error).
  *
  * @param {number | null | undefined} id

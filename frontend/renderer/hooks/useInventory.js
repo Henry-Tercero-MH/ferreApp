@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import * as svc from '@/services/inventoryService.js'
 import { productKeys } from './queryKeys.js'
 
+import { getNextId } from '@/services/cloudIdService.js'
 const invKeys = {
   stock:     ['inventory', 'stock'],
   movements: (opts) => ['inventory', 'movements', JSON.stringify(opts ?? {})],
