@@ -884,6 +884,7 @@ function BackupSection({ settings: s }) {
   const [backups,         setBackups]         = useState(/** @type {any[]} */ ([]))
   const [loadingNow,      setLoadingNow]      = useState(false)
   const [loadingExport,   setLoadingExport]   = useState(false)
+  const [loadingExcel,    setLoadingExcel]    = useState(false)
   const [savingCfg,       setSavingCfg]       = useState(false)
   const [restoring,       setRestoring]       = useState(false)
   const [confirmRestore,  setConfirmRestore]  = useState(/** @type {string|null} */ (null))
@@ -927,6 +928,19 @@ function BackupSection({ settings: s }) {
       toast.error(e instanceof Error ? e.message : 'Error')
     } finally {
       setLoadingExport(false)
+    }
+  }
+
+  async function handleExportToExcel() {
+    setLoadingExcel(true)
+    try {
+      const res = await api.db.exportToExcel()
+      if (!res.ok) { toast.error(res.error?.message ?? 'Error'); return }
+      toast.success('✅ Datos exportados a Excel en Descargas')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Error al exportar a Excel')
+    } finally {
+      setLoadingExcel(false)
     }
   }
 
@@ -1036,6 +1050,10 @@ function BackupSection({ settings: s }) {
           <Button size="sm" variant="outline" onClick={handleRestoreExternal} disabled={restoring || loadingNow}>
             <Download className="mr-1.5 h-3.5 w-3.5 rotate-180" />
             {restoring ? 'Restaurando...' : 'Restaurar desde archivo…'}
+          </Button>
+          <Button size="sm" variant="outline" onClick={handleExportToExcel} disabled={loadingExcel || restoring} title="Exporta todos los datos a Excel para validar conflictos">
+            <Download className="mr-1.5 h-3.5 w-3.5" />
+            {loadingExcel ? 'Exportando...' : 'Exportar a Excel'}
           </Button>
         </div>
 
