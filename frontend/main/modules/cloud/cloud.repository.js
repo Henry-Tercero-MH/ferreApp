@@ -73,7 +73,11 @@ export function mergeRecords(tableName, remoteRecords = []) {
   const db = getDb()
   const stats = { inserted: 0, updated: 0, skipped: 0 }
 
-  remoteRecords.forEach((remote) => {
+  // Deshabilitar FK constraints temporalmente para permite sincronización flexible
+  db.prepare('PRAGMA foreign_keys = OFF').run()
+
+  try {
+    remoteRecords.forEach((remote) => {
     if (!remote.id) {
       stats.skipped++
       return
@@ -124,7 +128,11 @@ export function mergeRecords(tableName, remoteRecords = []) {
       console.error(`Error merging record id=${remote.id} in ${tableName}:`, err)
       stats.skipped++
     }
-  })
+    })
+  } finally {
+    // Rehabilitar FK constraints
+    db.prepare('PRAGMA foreign_keys = ON').run()
+  }
 
   return stats
 }
