@@ -415,6 +415,39 @@ function _createSheetIfNeeded({ name, columns }) {
 }
 
 // ============================================================
+//  NORMALIZACIÓN DE TIPOS
+// ============================================================
+
+/**
+ * Campos que siempre deben ser strings (evita problemas de sincronización)
+ * Google Sheets almacena números como números, esto fuerza string
+ */
+const STRING_FIELDS = [
+  'nit', 'code', 'phone', 'email', 'address', 'name', 'full_name',
+  'customer_nit_snapshot', 'customer_name_snapshot',
+  'product_code', 'product_name', 'category', 'brand', 'location',
+  'contact_name', 'supplier_name', 'customer_name',
+  'created_by_user_snapshot', 'created_by_name', 'opened_by_name',
+  'closed_by_name', 'concept', 'notes', 'description',
+]
+
+/**
+ * Normaliza tipos de datos después de leer desde Sheets
+ * Convierte campos específicos a string para evitar inconsistencias
+ */
+function _normalizeRecord(record) {
+  const normalized = { ...record }
+
+  STRING_FIELDS.forEach(field => {
+    if (field in normalized && normalized[field] != null && normalized[field] !== '') {
+      normalized[field] = String(normalized[field])
+    }
+  })
+
+  return normalized
+}
+
+// ============================================================
 //  OPERACIONES CRUD SHEETS
 // ============================================================
 
@@ -424,7 +457,7 @@ function _readSheet(sheetName, { id, search, limit }) {
 
   let records = rows
     .filter(r => r.some(cell => cell !== "" && cell !== null))
-    .map(r => _rowToObject(headers, r));
+    .map(r => _normalizeRecord(_rowToObject(headers, r)));
 
   if (id)     records = records.filter(r => String(r.id) === String(id));
   if (search) {
