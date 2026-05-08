@@ -4,7 +4,7 @@ export const receivableSchema = z.object({
   id:              z.number(),
   customer_id:     z.number().nullable(),
   customer_name:   z.string(),
-  customer_nit:    z.string().nullable(),
+  customer_nit:    z.union([z.string(), z.number()]).nullable().transform(v => v === null ? null : String(v)),
   description:     z.string(),
   amount:          z.number(),
   amount_paid:     z.number(),

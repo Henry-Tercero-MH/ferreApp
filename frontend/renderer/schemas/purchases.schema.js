@@ -4,7 +4,7 @@ export const supplierSchema = z.object({
   id:           z.number(),
   name:         z.string(),
   contact_name: z.string().nullable(),
-  phone:        z.string().nullable(),
+  phone:        z.union([z.string(), z.number()]).nullable().transform(v => v === null ? null : String(v)),
   email:        z.string().nullable(),
   address:      z.string().nullable(),
   notes:        z.string().nullable(),

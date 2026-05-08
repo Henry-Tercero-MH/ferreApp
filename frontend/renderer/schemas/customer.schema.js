@@ -7,10 +7,10 @@ import { z } from 'zod'
  */
 export const customerSchema = z.object({
   id:         z.number().int().positive(),
-  nit:        z.string().min(1),
+  nit:        z.union([z.string(), z.number()]).transform(String),
   name:       z.string().min(1),
   email:      z.string().nullable(),
-  phone:      z.string().nullable(),
+  phone:      z.union([z.string(), z.number()]).nullable().transform(v => v === null ? null : String(v)),
   address:    z.string().nullable(),
   active:     z.number().int().min(0).max(1),
   is_system:  z.number().int().min(0).max(1),

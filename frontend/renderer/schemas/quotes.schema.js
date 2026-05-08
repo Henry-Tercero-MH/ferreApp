@@ -15,7 +15,7 @@ export const quoteSchema = z.object({
   id:              z.number(),
   customer_id:     z.number().nullable(),
   customer_name:   z.string(),
-  customer_nit:    z.string().nullable(),
+  customer_nit:    z.union([z.string(), z.number()]).nullable().transform(v => v === null ? null : String(v)),
   status:          z.enum(['draft', 'sent', 'accepted', 'rejected', 'converted']),
   notes:           z.string().nullable(),
   valid_until:     z.string().nullable(),
