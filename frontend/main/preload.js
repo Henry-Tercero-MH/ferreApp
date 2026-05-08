@@ -119,6 +119,7 @@ const api = {
     setBackupInterval:  (hours, copies) => ipcRenderer.invoke('db:set-backup-interval', hours, copies),
     getPath:            () => ipcRenderer.invoke('db:get-path'),
     restore:            (filePath) => ipcRenderer.invoke('db:restore', filePath),
+    exportToExcel:      () => ipcRenderer.invoke('db:export-to-excel'),
   },
 
   expenses: {

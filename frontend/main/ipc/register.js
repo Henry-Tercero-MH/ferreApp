@@ -67,6 +67,8 @@ import { registerLicenseIpc }      from '../modules/license/license.ipc.js'
 
 import { registerCloudIpc } from '../modules/cloud/cloud.ipc.js'
 
+import { exportAllDataToExcel } from '../modules/export/export.service.js'
+
 import { startBackupSchedule, updateBackupSchedule, runBackup, listBackups, restoreFromFile } from '../database/backup.js'
 
 const migrationModules = import.meta.glob('../database/migrations/*.sql', {
@@ -292,6 +294,16 @@ export function bootstrap() {
     } catch (err) {
       win.close()
       return { ok: false, error: { code: 'PRINT_ERROR', message: String(err.message) } }
+    }
+  })
+
+  // Exportar todos los datos a Excel para validación
+  ipcMain.handle('db:export-to-excel', async () => {
+    try {
+      const filePath = await exportAllDataToExcel()
+      return { ok: true, data: { filePath, message: `Datos exportados a: ${filePath}` } }
+    } catch (err) {
+      return { ok: false, error: { code: 'EXPORT_ERROR', message: err.message } }
     }
   })
 }
