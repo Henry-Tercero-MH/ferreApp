@@ -3,43 +3,31 @@ import { app } from 'electron'
 import { join } from 'node:path'
 import { writeFileSync, readFileSync, unlinkSync } from 'node:fs'
 import { getDb } from '../../database/connection.js'
+import { buildSyncPayload } from '../cloud/cloud.service.js'
+import { createSettingsRepository } from '../settings/settings.repository.js'
 
 /**
  * Sincroniza datos de SQLite a Google Sheets (reemplaza todo menos usuarios)
- * Construye payload sin usuarios y envía al Apps Script
+ * @param {string} scriptUrl - URL del Apps Script
  * @returns {Promise<{message: string}>}
  */
-export async function pushDataToSheets() {
-  const db = getDb()
-  const SCRIPT_URL = process.env.VITE_APPS_SCRIPT_URL || ''
-
-  if (!SCRIPT_URL) {
+export async function pushDataToSheets(scriptUrl) {
+  if (!scriptUrl) {
     throw new Error('VITE_APPS_SCRIPT_URL no configurado')
   }
 
-  // Tablas a sincronizar (EXCEPTO users y settings)
-  const tables = [
-    'products', 'categories', 'customers', 'suppliers',
-    'sales', 'sale_items', 'purchases', 'purchase_items',
-    'quotes', 'quote_items', 'receivables', 'expenses',
-    'cash_sessions', 'cash_movements', 'stock_movements',
-    'audit_log'
-  ]
+  // Construir payload con todas las tablas (incluyendo users)
+  const fullPayload = buildSyncPayload()
 
-  const payload = {}
+  // Remover usuarios del payload (por seguridad)
+  const payload = { ...fullPayload }
+  delete payload.users
+  delete payload.settings
 
-  tables.forEach(tableName => {
-    try {
-      const rows = db.prepare(`SELECT * FROM ${tableName} ORDER BY id ASC LIMIT 5000`).all()
-      payload[tableName] = rows
-    } catch (err) {
-      console.error(`Error leyendo ${tableName}:`, err.message)
-      payload[tableName] = []
-    }
-  })
+  console.log(`📤 Sincronizando ${Object.keys(payload).length} tablas a Google Sheets...`)
 
   // Enviar a Google Sheets
-  const res = await fetch(SCRIPT_URL, {
+  const res = await fetch(scriptUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify({ action: 'sync', payload })

@@ -308,9 +308,9 @@ export function bootstrap() {
   })
 
   // Sincronizar datos a Google Sheets (reemplaza todo menos usuarios)
-  ipcMain.handle('db:export-to-drive', async () => {
+  ipcMain.handle('db:export-to-drive', async (_e, scriptUrl) => {
     try {
-      const result = await pushDataToSheets()
+      const result = await pushDataToSheets(scriptUrl)
       return { ok: true, data: result }
     } catch (err) {
       return { ok: false, error: { code: 'SYNC_SHEETS_ERROR', message: err.message } }

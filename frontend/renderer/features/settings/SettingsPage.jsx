@@ -934,11 +934,13 @@ function BackupSection({ settings: s }) {
   async function handleExportToExcel() {
     setLoadingExcel(true)
     try {
-      const res = await api.db.exportToDrive()
+      const scriptUrl = import.meta.env.VITE_APPS_SCRIPT_URL
+      if (!scriptUrl) { toast.error('VITE_APPS_SCRIPT_URL no configurado'); return }
+      const res = await api.db.exportToDrive(scriptUrl)
       if (!res.ok) { toast.error(res.error?.message ?? 'Error'); return }
-      toast.success(res.data?.message || '✅ Datos sincronizados a Google Drive')
+      toast.success(res.data?.message || '✅ Datos sincronizados a Google Sheets')
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Error al exportar a Drive')
+      toast.error(e instanceof Error ? e.message : 'Error al sincronizar')
     } finally {
       setLoadingExcel(false)
     }
