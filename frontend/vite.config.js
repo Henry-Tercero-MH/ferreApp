@@ -38,7 +38,6 @@ export default defineConfig({
       preload: {
         input: 'main/preload.js',
       },
-      renderer: {},
     }),
   ],
 })

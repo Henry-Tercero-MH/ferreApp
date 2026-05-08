@@ -932,6 +932,7 @@ function BackupSection({ settings: s }) {
   }
 
   async function handleExportToExcel() {
+    if (!api) { toast.error('Solo disponible en Electron'); return }
     setLoadingExcel(true)
     try {
       const scriptUrl = import.meta.env.VITE_APPS_SCRIPT_URL

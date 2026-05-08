@@ -28,7 +28,19 @@ import { useAuthContext }       from '@/features/auth/AuthContext'
 import { useBusinessSettings, useTaxSettings }  from '@/hooks/useSettings'
 import { CustomerCombobox }     from '@/components/shared/CustomerCombobox'
 
-const fmtDate  = (s) => s ? new Intl.DateTimeFormat('es-GT', { dateStyle: 'medium' }).format(new Date(s + 'T00:00:00')) : '—'
+const fmtDate  = (s) => {
+  if (!s) return '—'
+  try {
+    let dateStr = String(s).trim()
+    if (dateStr.includes('T')) dateStr = dateStr.split('T')[0]
+    if (!dateStr.match(/^\d{4}-\d{2}-\d{2}/)) return '—'
+    const date = new Date(dateStr + 'T00:00:00Z')
+    if (isNaN(date.getTime())) return '—'
+    return new Intl.DateTimeFormat('es-GT', { dateStyle: 'medium' }).format(date)
+  } catch {
+    return '—'
+  }
+}
 const fmtMoney = (n) => new Intl.NumberFormat('es-GT', { style: 'currency', currency: 'GTQ' }).format(n ?? 0)
 
 /** Convierte una URL de asset a base64 para poder embeberse en HTML impreso en contexto aislado */

@@ -432,6 +432,39 @@ const STRING_FIELDS = [
 ]
 
 /**
+ * Campos de fecha que deben convertirse a string ISO (YYYY-MM-DD)
+ */
+const DATE_FIELDS = [
+  'created_at', 'updated_at', 'valid_until', 'due_date',
+  'expense_date', 'received_at',
+]
+
+/**
+ * Convierte una fecha (Date, número o string) a formato ISO YYYY-MM-DD
+ */
+function _toISODate(value) {
+  if (!value) return null
+  if (typeof value === 'string') {
+    value = value.trim()
+    if (value.match(/^\d{4}-\d{2}-\d{2}/)) return value.slice(0, 10)
+    if (value.match(/^\d{1,2}\/\d{1,2}\/\d{4}/)) {
+      const [d, m, y] = value.split('/').map(x => parseInt(x))
+      const date = new Date(y, m - 1, d)
+      return isNaN(date.getTime()) ? null : date.toISOString().slice(0, 10)
+    }
+    return null
+  }
+  if (value instanceof Date) {
+    return isNaN(value.getTime()) ? null : value.toISOString().slice(0, 10)
+  }
+  if (typeof value === 'number' && !isNaN(value)) {
+    const date = new Date((value - 25567) * 86400 * 1000)
+    return isNaN(date.getTime()) ? null : date.toISOString().slice(0, 10)
+  }
+  return null
+}
+
+/**
  * Normaliza tipos de datos después de leer desde Sheets
  * Convierte campos específicos a string para evitar inconsistencias
  */
@@ -441,6 +474,12 @@ function _normalizeRecord(record) {
   STRING_FIELDS.forEach(field => {
     if (field in normalized && normalized[field] != null && normalized[field] !== '') {
       normalized[field] = String(normalized[field])
+    }
+  })
+
+  DATE_FIELDS.forEach(field => {
+    if (field in normalized && normalized[field] != null) {
+      normalized[field] = _toISODate(normalized[field])
     }
   })
 

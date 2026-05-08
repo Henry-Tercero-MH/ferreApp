@@ -99,7 +99,9 @@ const api = {
     listBackups: () => electron.ipcRenderer.invoke("db:list-backups"),
     setBackupInterval: (hours, copies) => electron.ipcRenderer.invoke("db:set-backup-interval", hours, copies),
     getPath: () => electron.ipcRenderer.invoke("db:get-path"),
-    restore: (filePath) => electron.ipcRenderer.invoke("db:restore", filePath)
+    restore: (filePath) => electron.ipcRenderer.invoke("db:restore", filePath),
+    exportToExcel: () => electron.ipcRenderer.invoke("db:export-to-excel"),
+    exportToDrive: (scriptUrl) => electron.ipcRenderer.invoke("db:export-to-drive", scriptUrl)
   },
   expenses: {
     list: (opts) => electron.ipcRenderer.invoke("expenses:list", opts),

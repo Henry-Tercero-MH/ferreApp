@@ -17,7 +17,6 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
-    "types": ["vite/client"],
     "isolatedModules": true,
     "baseUrl": ".",
     "paths": {
