@@ -588,7 +588,13 @@ function _loginUser(email, password) {
 // body.sheets: array de nombres de hojas a traer, ej. ["products","customers","categories"]
 // Si no se especifica, devuelve las hojas editables por defecto.
 function _pullAll(sheets) {
-  const DEFAULT_PULL_SHEETS = ["products", "customers", "categories", "suppliers"];
+  const DEFAULT_PULL_SHEETS = [
+    "products", "categories", "customers", "suppliers",
+    "sales", "sale_items", "purchase_orders", "purchase_items",
+    "quotes", "quote_items", "receivables", "expenses",
+    "cash_sessions", "cash_movements", "stock_movements",
+    "users", "audit_log"
+  ];
   const targets = Array.isArray(sheets) && sheets.length > 0 ? sheets : DEFAULT_PULL_SHEETS;
 
   const result = {};

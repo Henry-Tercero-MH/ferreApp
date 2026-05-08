@@ -34,7 +34,7 @@ async function _buildPayload() {
     _safe(api.cash.list()),
     _safe(api.cash.listAllMovements()),
     _safe(api.receivables.list()),
-    _safe(api.quotes.list()),
+    _safe(api.quotes.list({ pageSize: 5000 })),
     _safe(api.inventory.movements({ pageSize: 5000 })),
   ])
 
@@ -42,8 +42,17 @@ async function _buildPayload() {
     (/** @type {any} */ o) => (o.items ?? []).map((/** @type {any} */ i) => ({ ...i, order_id: o.id }))
   )
 
+  const quoteItems = (/** @type {any[]} */ (quotesRaw)).flatMap(
+    (/** @type {any} */ q) => (q.items ?? []).map((/** @type {any} */ i) => ({ ...i, quote_id: q.id }))
+  )
+
   const sales = (/** @type {any[]} */ (salesRaw)).map((/** @type {any} */ s) => {
     const { items: _i, ...rest } = s
+    return rest
+  })
+
+  const quotes = (/** @type {any[]} */ (quotesRaw)).map((/** @type {any} */ q) => {
+    const { items: _i, ...rest } = q
     return rest
   })
 
@@ -58,7 +67,7 @@ async function _buildPayload() {
     purchase_orders: purchasesRaw.map((/** @type {any} */ o) => { const { items: _i, ...rest } = o; return rest }),
     purchase_items: purchaseItems,
     cash_sessions: cashSessionsRaw, cash_movements: cashMovementsRaw,
-    receivables: receivablesRaw, quotes: quotesRaw,
+    receivables: receivablesRaw, quotes, quote_items: quoteItems,
     stock_movements: Array.isArray(stockMovementsRaw) ? stockMovementsRaw : [],
   }
 }
@@ -128,13 +137,21 @@ export async function syncBidirectional() {
 
 // ─── Auto-sync ────────────────────────────────────────────────
 
-const AUTO_SYNC_INTERVAL_MS = 15 * 60 * 1000 // 15 minutos
+const AUTO_SYNC_INTERVAL_MS = 2 * 60 * 1000 // 2 minutos
 
 /** @type {ReturnType<typeof setInterval> | null} */
 let _autoSyncTimer = null
 
 /**
- * Inicia sync automática cada 15 minutos.
+ * Sincronización manual inmediata (botón usuario)
+ */
+export async function manualSync() {
+  if (!SCRIPT_URL || !window?.api) throw new Error('Sync no disponible en este contexto')
+  return await syncBidirectional()
+}
+
+/**
+ * Inicia sync automática cada 2 minutos.
  * - Sync inmediata al arrancar (delay 3s)
  * - Luego sync periódica
  * @param {(status: { syncing: boolean, lastSync: string|null, error: string|null }) => void} onStatus
