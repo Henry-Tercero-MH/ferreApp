@@ -6,7 +6,10 @@ import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
+  // "/" in dev so /@vite/client resolves correctly via the dev server;
+  // "./" in build so asset paths work with file:// protocol in Electron prod.
+  base: command === 'build' ? './' : '/',
   resolve: {
     alias: {
       '@':            path.resolve(__dirname, 'renderer'),
@@ -38,6 +41,7 @@ export default defineConfig({
       preload: {
         input: 'main/preload.js',
       },
+      renderer: {},
     }),
   ],
-})
+}))

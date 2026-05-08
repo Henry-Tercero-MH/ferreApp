@@ -1,7 +1,8 @@
 import ExcelJS from 'exceljs'
-import { app } from 'electron'
+import _electron from 'electron'
 import { join } from 'node:path'
 import { writeFileSync, readFileSync, unlinkSync } from 'node:fs'
+const { app } = _electron
 import { getDb } from '../../database/connection.js'
 import { buildSyncPayload } from '../cloud/cloud.service.js'
 import { createSettingsRepository } from '../settings/settings.repository.js'
