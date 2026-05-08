@@ -406,6 +406,7 @@ function CloseCashModal({ open, onClose, session, user }) {
     if (isNaN(val) || val < 0) { toast.error('Ingresa un monto válido'); return }
     try {
       await mut.mutateAsync({
+        id:            session.id,
         userId:        user.id,
         userName:      user.full_name,
         role:          user.role,

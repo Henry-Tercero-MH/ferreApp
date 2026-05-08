@@ -1481,6 +1481,12 @@ tr.row-warning { background-color: #fff9e6; }
   border-top: 1px solid var(--border); text-align: center;
 }
 
+/* ── Animaciones ──────────────────────────────────────────────────────── */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 /* ── Responsive Mobile ────────────────────────────────────────────────── */
 .topbar-sidebar-toggle {
   display: none;

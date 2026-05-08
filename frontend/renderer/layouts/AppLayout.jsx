@@ -19,8 +19,10 @@ import {
   MdShield,
   MdMenu,
 } from 'react-icons/md';
-import { Landmark, ShoppingCart, Wallet, FileText, TrendingDown, Truck } from 'lucide-react'
+import { Landmark, ShoppingCart, Wallet, FileText, TrendingDown, Truck, RefreshCw } from 'lucide-react'
 import { GlobalSearch } from '@/components/shared/GlobalSearch';
+import { pullFromCloud } from '../services/syncService.js';
+import { isElectron } from '../services/webApiService.js';
 
 /** Todos los ítems configurables del sidebar (key = identificador en nav_visibility) */
 const ALL_NAV = [
@@ -71,10 +73,36 @@ export default function AppLayout() {
   const navigate = useNavigate();
   const [collapsed, toggleCollapsed] = useCollapsed();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   function handleLogout() {
     logout();
     navigate(ROUTES.LOGIN);
+  }
+
+  async function handleSync() {
+    if (!isElectron) return; // Solo en Electron
+    setSyncing(true);
+    try {
+      await pullFromCloud();
+    } catch (err) {
+      console.error('Sync error:', err);
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  async function handleNavItemClick() {
+    // Sincronizar silenciosamente cuando navega (sin mostrar loading)
+    if (!isElectron) return;
+    setSyncing(true);
+    try {
+      await pullFromCloud();
+    } catch (err) {
+      console.error('Background sync error:', err);
+    } finally {
+      setSyncing(false);
+    }
   }
 
   useEffect(() => {
@@ -109,7 +137,10 @@ export default function AppLayout() {
         key={to}
         to={to}
         title={collapsed ? label : undefined}
-        onClick={() => window.innerWidth <= 768 && setSidebarOpen(false)}
+        onClick={() => {
+          if (window.innerWidth <= 768) setSidebarOpen(false);
+          handleNavItemClick(); // Sincronizar al navegar
+        }}
         className={({ isActive }) =>
           `nav-item${isActive ? ' nav-item-active' : ''}${collapsed ? ' nav-item-collapsed' : ''}`
         }
@@ -152,7 +183,10 @@ export default function AppLayout() {
             <NavLink
               to={ROUTES.DASHBOARD}
               title={collapsed ? 'Dashboard' : undefined}
-              onClick={() => window.innerWidth <= 768 && setSidebarOpen(false)}
+              onClick={() => {
+                if (window.innerWidth <= 768) setSidebarOpen(false);
+                handleNavItemClick(); // Sincronizar al navegar
+              }}
               className={({ isActive }) =>
                 `nav-item${isActive ? ' nav-item-active' : ''}${collapsed ? ' nav-item-collapsed' : ''}`
               }
@@ -194,6 +228,16 @@ export default function AppLayout() {
             <GlobalSearch />
           </div>
           <div className="topbar-right">
+            {isElectron && (
+              <button
+                className="topbar-audit-btn"
+                title={syncing ? 'Sincronizando...' : 'Sincronizar con Google Sheets (Click manual)'}
+                onClick={handleSync}
+                disabled={syncing}
+              >
+                <RefreshCw style={{ fontSize: 18, animation: syncing ? 'spin 1s linear infinite' : 'none' }} />
+              </button>
+            )}
             {isAdmin && (
               <button
                 className="topbar-audit-btn"
