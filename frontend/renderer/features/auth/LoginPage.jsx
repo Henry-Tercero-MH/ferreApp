@@ -86,22 +86,22 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex h-screen items-center justify-center bg-gray-50">
-      <Card className="w-full max-w-4xl h-[600px] border-0 shadow-2xl overflow-hidden flex">
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+      <Card className="w-full max-w-sm lg:max-w-4xl min-h-[500px] lg:h-[600px] border-0 shadow-2xl overflow-hidden flex flex-col lg:flex-row">
         {/* Columna izquierda: Formulario (azul) */}
-        <div className="w-full lg:w-2/5 flex flex-col items-center justify-center px-8 py-6"
+        <div className="w-full lg:w-2/5 flex flex-col items-center justify-center px-4 py-6 lg:px-8 lg:py-6"
           style={{
             backgroundColor: '#4a6b8a'
           }}
         >
           <div className="w-full max-w-xs">
             {/* Header con LOGIN */}
-            <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold text-white tracking-wide">LOGIN</h1>
+            <div className="text-center mb-6 lg:mb-8">
+              <h1 className="text-2xl lg:text-3xl font-bold text-white tracking-wide">LOGIN</h1>
             </div>
 
             {/* Formulario */}
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3 lg:space-y-4" noValidate>
               <div className="space-y-1">
                 <Label htmlFor="email" className="text-xs font-medium text-white/90">Correo</Label>
                 <Input
@@ -109,7 +109,7 @@ export default function LoginPage() {
                   type="email"
                   autoComplete="email"
                   placeholder="usuario@empresa.com"
-                  className="h-9 text-sm"
+                  className="h-9 lg:h-9 text-sm"
                   {...form.register('email')}
                   aria-invalid={form.formState.errors.email ? 'true' : 'false'}
                 />
@@ -126,14 +126,14 @@ export default function LoginPage() {
                     type={showPassword ? 'text' : 'password'}
                     autoComplete="current-password"
                     placeholder="••••••••"
-                    className="h-9 text-sm pr-9"
+                    className="h-9 lg:h-9 text-sm pr-9"
                     {...form.register('password')}
                     aria-invalid={form.formState.errors.password ? 'true' : 'false'}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-300 hover:text-white"
                     title={showPassword ? 'Ocultar' : 'Mostrar'}
                   >
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -153,7 +153,7 @@ export default function LoginPage() {
 
               <Button
                 type="submit"
-                className="w-full h-9 text-sm font-medium"
+                className="w-full h-9 text-sm font-medium mt-2"
                 disabled={submitting}
               >
                 <LogIn className="mr-2 h-3.5 w-3.5" />
@@ -163,7 +163,7 @@ export default function LoginPage() {
 
             {/* Setup (solo web) */}
             {!isElectron && (
-              <div className="mt-4 pt-3 border-t">
+              <div className="mt-3 lg:mt-4 pt-3 border-t">
                 <Button
                   type="button"
                   variant="outline"
@@ -179,17 +179,17 @@ export default function LoginPage() {
             )}
 
             {/* Copyright */}
-            <p className="mt-4 text-center text-xs text-white/50">
+            <p className="mt-3 lg:mt-4 text-center text-xs text-white/50">
               © {new Date().getFullYear()} Ferretería El Esfuerzo
             </p>
           </div>
         </div>
 
         {/* Columna derecha: Logo + Bienvenido (blanco, solo desktop) */}
-        <div className="hidden lg:flex lg:w-3/5 flex-col items-center justify-center relative overflow-hidden bg-white">
-          <img src="/logoEsfuerzo.png" alt="Ferretería El Esfuerzo" className="w-56 h-auto mb-12 drop-shadow-lg" />
-          <h2 className="text-5xl font-bold text-gray-900 text-center">Bienvenido.</h2>
-          <p className="text-gray-500 mt-3 text-sm">Ferretería El Esfuerzo</p>
+        <div className="hidden lg:flex lg:w-3/5 flex-col items-center justify-center relative overflow-hidden bg-white px-8">
+          <img src="/logoEsfuerzo.png" alt="Ferretería El Esfuerzo" className="w-48 lg:w-56 h-auto mb-8 lg:mb-12 drop-shadow-lg" />
+          <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 text-center">Bienvenido.</h2>
+          <p className="text-gray-500 mt-2 lg:mt-3 text-sm">Ferretería El Esfuerzo</p>
         </div>
       </Card>
     </div>
