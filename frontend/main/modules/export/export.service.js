@@ -2,7 +2,7 @@ import ExcelJS from 'exceljs'
 import { app } from 'electron'
 import { join } from 'node:path'
 import { writeFileSync, readFileSync, unlinkSync } from 'node:fs'
-import { getDb } from '../database/db.js'
+import { getDb } from '../database/connection.js'
 
 /**
  * Sincroniza datos de SQLite a Google Sheets (reemplaza todo menos usuarios)
