@@ -15,7 +15,7 @@ export const saleSchema = z.object({
   date:                    z.string(),
   customer_id:             z.number().int().nullable(),
   customer_name_snapshot:  z.string().nullable(),
-  customer_nit_snapshot:   z.string().nullable(),
+  customer_nit_snapshot:   z.union([z.string(), z.number()]).nullable().transform(v => v === null ? null : String(v)),
   payment_method:          z.enum(['cash', 'credit', 'card', 'transfer']).optional().nullable(),
   client_type:             z.enum(['cf', 'registered', 'company']).optional().nullable(),
   status:                  z.enum(['active', 'voided']).optional().default('active'),
