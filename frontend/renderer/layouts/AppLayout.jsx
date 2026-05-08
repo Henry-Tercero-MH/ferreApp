@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuthContext } from '../features/auth/AuthContext';
 import { useBusinessSettings, useSettings } from '../hooks/useSettings';
@@ -17,6 +17,7 @@ import {
   MdChevronLeft,
   MdChevronRight,
   MdShield,
+  MdMenu,
 } from 'react-icons/md';
 import { Landmark, ShoppingCart, Wallet, FileText, TrendingDown, Truck } from 'lucide-react'
 import { GlobalSearch } from '@/components/shared/GlobalSearch';
@@ -69,11 +70,22 @@ export default function AppLayout() {
   const { user, logout } = useAuthContext();
   const navigate = useNavigate();
   const [collapsed, toggleCollapsed] = useCollapsed();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   function handleLogout() {
     logout();
     navigate(ROUTES.LOGIN);
   }
+
+  useEffect(() => {
+    const closeSidebarOnResize = () => {
+      if (window.innerWidth > 768) {
+        setSidebarOpen(false);
+      }
+    };
+    window.addEventListener('resize', closeSidebarOnResize);
+    return () => window.removeEventListener('resize', closeSidebarOnResize);
+  }, []);
 
   const isAdmin = user?.role === 'admin';
   const { name: appName, logo } = useBusinessSettings();
@@ -97,6 +109,7 @@ export default function AppLayout() {
         key={to}
         to={to}
         title={collapsed ? label : undefined}
+        onClick={() => window.innerWidth <= 768 && setSidebarOpen(false)}
         className={({ isActive }) =>
           `nav-item${isActive ? ' nav-item-active' : ''}${collapsed ? ' nav-item-collapsed' : ''}`
         }
@@ -115,7 +128,7 @@ export default function AppLayout() {
   }
 
   return (
-    <div className={`app-shell${collapsed ? ' sidebar-collapsed' : ''}`}>
+    <div className={`app-shell${collapsed ? ' sidebar-collapsed' : ''}${sidebarOpen ? ' sidebar-open' : ''}`}>
       <aside className="sidebar">
         <div className="sidebar-brand">
           {!collapsed && (
@@ -139,6 +152,7 @@ export default function AppLayout() {
             <NavLink
               to={ROUTES.DASHBOARD}
               title={collapsed ? 'Dashboard' : undefined}
+              onClick={() => window.innerWidth <= 768 && setSidebarOpen(false)}
               className={({ isActive }) =>
                 `nav-item${isActive ? ' nav-item-active' : ''}${collapsed ? ' nav-item-collapsed' : ''}`
               }
@@ -170,6 +184,13 @@ export default function AppLayout() {
       <div className="main-wrapper">
         <header className="topbar">
           <div className="topbar-left">
+            <button
+              className="topbar-sidebar-toggle"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              title={sidebarOpen ? 'Cerrar menú' : 'Abrir menú'}
+            >
+              <MdMenu style={{ fontSize: 20 }} />
+            </button>
             <GlobalSearch />
           </div>
           <div className="topbar-right">
