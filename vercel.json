@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "cd frontend && npm run build",
+  "buildCommand": "cd frontend && npm install && npx vite build",
   "outputDirectory": "frontend/dist",
   "env": {
     "VITE_APPS_SCRIPT_URL": "@VITE_APPS_SCRIPT_URL"
