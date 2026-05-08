@@ -934,11 +934,11 @@ function BackupSection({ settings: s }) {
   async function handleExportToExcel() {
     setLoadingExcel(true)
     try {
-      const res = await api.db.exportToExcel()
+      const res = await api.db.exportToDrive()
       if (!res.ok) { toast.error(res.error?.message ?? 'Error'); return }
-      toast.success('✅ Datos exportados a Excel en Descargas')
+      toast.success(res.data?.message || '✅ Datos sincronizados a Google Drive')
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Error al exportar a Excel')
+      toast.error(e instanceof Error ? e.message : 'Error al exportar a Drive')
     } finally {
       setLoadingExcel(false)
     }
@@ -1051,9 +1051,9 @@ function BackupSection({ settings: s }) {
             <Download className="mr-1.5 h-3.5 w-3.5 rotate-180" />
             {restoring ? 'Restaurando...' : 'Restaurar desde archivo…'}
           </Button>
-          <Button size="sm" variant="outline" onClick={handleExportToExcel} disabled={loadingExcel || restoring} title="Exporta todos los datos a Excel para validar conflictos">
+          <Button size="sm" variant="outline" onClick={handleExportToExcel} disabled={loadingExcel || restoring} title="Exporta datos a Google Drive (reemplaza archivo anterior)">
             <Download className="mr-1.5 h-3.5 w-3.5" />
-            {loadingExcel ? 'Exportando...' : 'Exportar a Excel'}
+            {loadingExcel ? 'Sincronizando...' : 'Sincronizar a Drive'}
           </Button>
         </div>
 

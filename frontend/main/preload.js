@@ -120,6 +120,7 @@ const api = {
     getPath:            () => ipcRenderer.invoke('db:get-path'),
     restore:            (filePath) => ipcRenderer.invoke('db:restore', filePath),
     exportToExcel:      () => ipcRenderer.invoke('db:export-to-excel'),
+    exportToDrive:      () => ipcRenderer.invoke('db:export-to-drive'),
   },
 
   expenses: {

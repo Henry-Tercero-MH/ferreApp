@@ -67,7 +67,7 @@ import { registerLicenseIpc }      from '../modules/license/license.ipc.js'
 
 import { registerCloudIpc } from '../modules/cloud/cloud.ipc.js'
 
-import { exportAllDataToExcel } from '../modules/export/export.service.js'
+import { exportAllDataToExcel, exportAndUploadToDrive } from '../modules/export/export.service.js'
 
 import { startBackupSchedule, updateBackupSchedule, runBackup, listBackups, restoreFromFile } from '../database/backup.js'
 
@@ -304,6 +304,16 @@ export function bootstrap() {
       return { ok: true, data: { filePath, message: `Datos exportados a: ${filePath}` } }
     } catch (err) {
       return { ok: false, error: { code: 'EXPORT_ERROR', message: err.message } }
+    }
+  })
+
+  // Exportar datos a Google Drive (reemplaza archivo anterior)
+  ipcMain.handle('db:export-to-drive', async () => {
+    try {
+      const result = await exportAndUploadToDrive()
+      return { ok: true, data: result }
+    } catch (err) {
+      return { ok: false, error: { code: 'EXPORT_DRIVE_ERROR', message: err.message } }
     }
   })
 }
